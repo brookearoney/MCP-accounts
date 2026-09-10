@@ -1,0 +1,555 @@
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type {
+  AuthType,
+  BootstrapData,
+  ConnectionEvent,
+  HostDefinition,
+  Profile,
+  ProfileInput,
+  ServiceDefinition,
+} from "./types";
+
+type View = "connections" | "catalog" | "clients" | "about";
+
+const authNames: Record<AuthType, string> = {
+  oauth: "Browser OAuth",
+  pat: "Personal access token",
+  apiKey: "API key",
+  apiToken: "API token",
+  bearer: "Bearer token",
+};
+
+const maturityNames = {
+  official: "Official remote",
+  restricted: "Provider approval",
+  adapter: "Custom adapter",
+  custom: "Custom",
+};
+
+const emptyInput: ProfileInput = {
+  serviceId: "supabase",
+  label: "",
+  accountHint: "",
+  scope: "",
+  endpoint: "",
+  authType: "oauth",
+  secret: "",
+  headerName: "Authorization",
+  headerPrefix: "Bearer",
+  readOnly: true,
+  features: "",
+};
+
+function Icon({ service, size = "normal" }: { service: ServiceDefinition; size?: "normal" | "large" }) {
+  return (
+    <span
+      className={`service-icon ${size === "large" ? "service-icon-large" : ""}`}
+      style={{ "--service-color": service.color } as React.CSSProperties}
+    >
+      {service.monogram}
+    </span>
+  );
+}
+
+function Status({ profile }: { profile: Profile }) {
+  const label = {
+    ready: "Ready",
+    connecting: "Connecting",
+    connected: "Connected",
+    error: "Needs attention",
+  }[profile.status];
+  return <span className={`status status-${profile.status}`}><i />{label}</span>;
+}
+
+function AddConnection({
+  service,
+  profile,
+  onClose,
+  onSaved,
+  onRemove,
+}: {
+  service: ServiceDefinition;
+  profile?: Profile;
+  onClose: () => void;
+  onSaved: (profile: Profile) => void;
+  onRemove?: () => void;
+}) {
+  const [input, setInput] = useState<ProfileInput>(() => ({
+    ...emptyInput,
+    id: profile?.id,
+    serviceId: service.id,
+    label: profile?.label || "",
+    accountHint: profile?.accountHint || "",
+    scope: profile?.scope || "",
+    endpoint: profile?.endpoint || service.endpoint,
+    authType: profile?.authType || service.authModes[0],
+    headerName: profile?.headerName || "Authorization",
+    headerPrefix: profile?.headerPrefix ?? "Bearer",
+    readOnly: profile?.readOnly ?? Boolean(service.supportsReadOnly),
+    features: profile?.features || "",
+  }));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const needsSecret = input.authType !== "oauth";
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const saved = await window.mcpAccounts.saveProfile(input);
+      onSaved(saved);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <form className="modal" onSubmit={submit}>
+        <header className="modal-header">
+          <div className="modal-title-wrap">
+            <Icon service={service} size="large" />
+            <div>
+              <p className="eyebrow">{profile ? "Edit connection" : "New connection"}</p>
+              <h2>{service.name}</h2>
+            </div>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">×</button>
+        </header>
+
+        {service.maturity === "restricted" && (
+          <div className="notice warning">
+            Vercel currently accepts reviewed MCP clients. Authentication through this bridge needs compatibility testing.
+          </div>
+        )}
+        {service.maturity === "adapter" && (
+          <div className="notice">
+            This service needs a compatible custom Streamable HTTP MCP endpoint. The first-party API adapter is on the roadmap.
+          </div>
+        )}
+
+        <div className="form-grid">
+          <label className="field full">
+            <span>Connection name</span>
+            <input
+              autoFocus
+              required
+              value={input.label}
+              onChange={(event) => setInput({ ...input, label: event.target.value })}
+              placeholder="Work, Personal, Client staging…"
+            />
+          </label>
+
+          <label className="field">
+            <span>Account hint</span>
+            <input
+              value={input.accountHint}
+              onChange={(event) => setInput({ ...input, accountHint: event.target.value })}
+              placeholder="email@example.com"
+            />
+          </label>
+
+          <label className="field">
+            <span>{service.scopeLabel}</span>
+            <input
+              value={input.scope}
+              onChange={(event) => setInput({ ...input, scope: event.target.value })}
+              placeholder={service.id === "sentry" ? "org/project" : "Optional"}
+            />
+          </label>
+
+          <label className="field full">
+            <span>MCP endpoint</span>
+            <input
+              required
+              value={input.endpoint}
+              onChange={(event) => setInput({ ...input, endpoint: event.target.value })}
+              placeholder="https://service.example.com/mcp"
+            />
+          </label>
+
+          <label className="field">
+            <span>Authentication</span>
+            <select
+              value={input.authType}
+              onChange={(event) => setInput({ ...input, authType: event.target.value as AuthType })}
+            >
+              {service.authModes.map((mode) => <option key={mode} value={mode}>{authNames[mode]}</option>)}
+            </select>
+          </label>
+
+          {needsSecret ? (
+            <label className="field">
+              <span>{authNames[input.authType]}</span>
+              <input
+                type="password"
+                required={!profile?.hasSecret}
+                value={input.secret}
+                onChange={(event) => setInput({ ...input, secret: event.target.value })}
+                placeholder={profile?.hasSecret ? "Stored — enter to replace" : "Stored with macOS encryption"}
+              />
+            </label>
+          ) : (
+            <div className="field oauth-explainer">
+              <span>Sign-in behavior</span>
+              <p>Your browser opens during the first connection test. This profile gets its own OAuth storage directory.</p>
+            </div>
+          )}
+
+          {service.supportsReadOnly && (
+            <label className="toggle-row full">
+              <div>
+                <strong>Read-only</strong>
+                <span>Hide or reject mutating tools where the provider supports it.</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={input.readOnly}
+                onChange={(event) => setInput({ ...input, readOnly: event.target.checked })}
+              />
+            </label>
+          )}
+
+          {service.id === "supabase" && (
+            <label className="field full">
+              <span>Feature groups</span>
+              <input
+                value={input.features}
+                onChange={(event) => setInput({ ...input, features: event.target.value })}
+                placeholder="database,docs,debug (optional)"
+              />
+            </label>
+          )}
+
+          {needsSecret && (
+            <details className="advanced full">
+              <summary>Advanced header settings</summary>
+              <div className="form-grid compact">
+                <label className="field">
+                  <span>Header name</span>
+                  <input value={input.headerName} onChange={(event) => setInput({ ...input, headerName: event.target.value })} />
+                </label>
+                <label className="field">
+                  <span>Value prefix</span>
+                  <input value={input.headerPrefix} onChange={(event) => setInput({ ...input, headerPrefix: event.target.value })} placeholder="Bearer" />
+                </label>
+              </div>
+            </details>
+          )}
+        </div>
+
+        {error && <div className="form-error">{error}</div>}
+
+        <footer className="modal-footer">
+          {profile && onRemove && <button type="button" className="button danger-button" onClick={onRemove}>Remove</button>}
+          <span className="footer-spacer" />
+          <button type="button" className="button ghost" onClick={onClose}>Cancel</button>
+          <button className="button primary" disabled={saving}>{saving ? "Saving…" : profile ? "Save changes" : "Add connection"}</button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ConfigSheet({
+  profile,
+  hosts,
+  onClose,
+  notify,
+}: {
+  profile: Profile;
+  hosts: HostDefinition[];
+  onClose: () => void;
+  notify: (message: string) => void;
+}) {
+  const [config, setConfig] = useState("");
+  const [working, setWorking] = useState("");
+
+  useEffect(() => {
+    window.mcpAccounts.getConfig(profile.id).then((result) => setConfig(JSON.stringify(result.config, null, 2)));
+  }, [profile.id]);
+
+  async function install(host: HostDefinition) {
+    setWorking(host.id);
+    try {
+      const result = await window.mcpAccounts.installHost(host.id, profile.id);
+      notify(`Installed as ${result.serverName}. Restart ${host.name} to load it.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setWorking("");
+    }
+  }
+
+  return (
+    <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal config-modal">
+        <header className="modal-header">
+          <div>
+            <p className="eyebrow">Install connection</p>
+            <h2>{profile.serviceName} · {profile.label}</h2>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose}>×</button>
+        </header>
+        <div className="host-options">
+          {hosts.map((host) => (
+            <div className="host-option" key={host.id}>
+              <div>
+                <strong>{host.name}</strong>
+                <span>{host.configured ? "Existing configuration found" : "Configuration will be created"}</span>
+              </div>
+              <button className="button small" disabled={Boolean(working)} onClick={() => install(host)}>
+                {working === host.id ? "Installing…" : "Install"}
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="code-wrap">
+          <div className="code-heading">
+            <span>Portable configuration</span>
+            <button
+              className="text-button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(config);
+                notify("Configuration copied.");
+              }}
+            >Copy</button>
+          </div>
+          <pre>{config || "Generating…"}</pre>
+        </div>
+        <footer className="modal-footer">
+          <button className="button ghost" onClick={() => window.mcpAccounts.exportConfig(profile.id)}>Export JSON…</button>
+          <button className="button primary" onClick={onClose}>Done</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function App() {
+  const [data, setData] = useState<BootstrapData>();
+  const [view, setView] = useState<View>("connections");
+  const [addingService, setAddingService] = useState<ServiceDefinition>();
+  const [editingProfile, setEditingProfile] = useState<Profile>();
+  const [configProfile, setConfigProfile] = useState<Profile>();
+  const [logs, setLogs] = useState<Record<string, string[]>>({});
+  const [toast, setToast] = useState("");
+  const [query, setQuery] = useState("");
+
+  const refresh = () => window.mcpAccounts.bootstrap().then(setData);
+
+  useEffect(() => {
+    refresh();
+    return window.mcpAccounts.onConnectionEvent((event: ConnectionEvent) => {
+      setLogs((previous) => ({
+        ...previous,
+        [event.profileId]: [...(previous[event.profileId] || []), ...event.message.split("\n").filter(Boolean)].slice(-30),
+      }));
+      if (event.kind === "complete" || event.kind === "error") refresh();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(""), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  const serviceMap = useMemo(
+    () => Object.fromEntries((data?.services || []).map((service) => [service.id, service])),
+    [data?.services],
+  );
+
+  const filteredProfiles = (data?.profiles || []).filter((profile) => {
+    const haystack = `${profile.serviceName} ${profile.label} ${profile.accountHint} ${profile.scope}`.toLowerCase();
+    return haystack.includes(query.toLowerCase());
+  });
+
+  function notify(message: string) {
+    setToast(message);
+  }
+
+  async function startConnection(profile: Profile) {
+    setLogs((previous) => ({ ...previous, [profile.id]: ["Starting isolated connection check…"] }));
+    try {
+      await window.mcpAccounts.startConnection(profile.id);
+      await refresh();
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function removeProfile(profile: Profile) {
+    if (!window.confirm(`Remove “${profile.serviceName} · ${profile.label}”? Existing host config entries are left intact.`)) return;
+    await window.mcpAccounts.removeProfile(profile.id);
+    await refresh();
+    notify("Connection removed.");
+  }
+
+  if (!data) {
+    return <div className="loading"><div className="loader" /><span>Opening secure profile store…</span></div>;
+  }
+
+  const navItems: { id: View; label: string; glyph: string }[] = [
+    { id: "connections", label: "Connections", glyph: "⌘" },
+    { id: "catalog", label: "Service catalog", glyph: "◫" },
+    { id: "clients", label: "AI clients", glyph: "↗" },
+    { id: "about", label: "About", glyph: "i" },
+  ];
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark"><span /><span /><span /></div>
+          <div><strong>MCP Accounts</strong><small>Local profile manager</small></div>
+        </div>
+        <nav>
+          {navItems.map((item) => (
+            <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
+              <i>{item.glyph}</i>{item.label}
+              {item.id === "connections" && <b>{data.profiles.length}</b>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
+          <span className="version">MVP 0.1.0</span>
+        </div>
+      </aside>
+
+      <main className="main">
+        {view === "connections" && (
+          <>
+            <header className="page-header">
+              <div><p className="eyebrow">Your machine</p><h1>Connections</h1><p>One service. Every account. No credential collisions.</p></div>
+              <button className="button primary" onClick={() => setView("catalog")}><span>＋</span>Add connection</button>
+            </header>
+
+            {data.profiles.length > 0 && (
+              <div className="toolbar">
+                <div className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search accounts and projects" /></div>
+                <span className="connection-count">{filteredProfiles.length} connection{filteredProfiles.length === 1 ? "" : "s"}</span>
+              </div>
+            )}
+
+            {data.profiles.length === 0 ? (
+              <section className="empty-state">
+                <div className="empty-orbit"><span className="orb a" /><span className="orb b" /><span className="orb c" /><div className="empty-center">M</div></div>
+                <h2>Connect your first account</h2>
+                <p>Add separate personal, work, or client identities without changing the server you use.</p>
+                <button className="button primary" onClick={() => setView("catalog")}>Browse services</button>
+              </section>
+            ) : (
+              <div className="connections-list">
+                {filteredProfiles.map((profile) => {
+                  const service = serviceMap[profile.serviceId];
+                  return (
+                    <article className="connection-card" key={profile.id}>
+                      <div className="connection-main">
+                        {service && <Icon service={service} />}
+                        <div className="connection-copy">
+                          <div className="connection-title"><strong>{profile.serviceName}</strong><span>·</span><b>{profile.label}</b><Status profile={profile} /></div>
+                          <p>{[profile.accountHint, profile.scope, profile.readOnly ? "Read-only" : "Read/write"].filter(Boolean).join(" · ") || profile.endpoint}</p>
+                        </div>
+                      </div>
+                      <div className="connection-actions">
+                        <button className="button small" disabled={profile.status === "connecting"} onClick={() => startConnection(profile)}>
+                          {profile.status === "connecting" ? "Connecting…" : profile.authType === "oauth" ? "Connect" : "Test"}
+                        </button>
+                        <button className="button small ghost" onClick={() => setConfigProfile(profile)}>Install</button>
+                        <button className="icon-button subtle" onClick={() => { setEditingProfile(profile); setAddingService(service); }}>•••</button>
+                      </div>
+                      {(logs[profile.id]?.length || profile.lastError) && (
+                        <div className="connection-log">
+                          <div><span>Recent activity</span><button onClick={() => setLogs((previous) => ({ ...previous, [profile.id]: [] }))}>Clear</button></div>
+                          <pre>{(logs[profile.id] || [profile.lastError]).join("\n")}</pre>
+                          <button className="danger-link" onClick={() => removeProfile(profile)}>Remove connection</button>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {view === "catalog" && (
+          <>
+            <header className="page-header compact-header">
+              <div><p className="eyebrow">Presets</p><h1>Service catalog</h1><p>Official remote servers first, custom adapters when needed.</p></div>
+            </header>
+            <div className="catalog-grid">
+              {data.services.map((service) => (
+                <button className="service-tile" key={service.id} onClick={() => { setEditingProfile(undefined); setAddingService(service); }}>
+                  <div className="tile-top"><Icon service={service} size="large" /><span className={`maturity maturity-${service.maturity}`}>{maturityNames[service.maturity]}</span></div>
+                  <strong>{service.name}</strong>
+                  <p>{service.description}</p>
+                  <div className="tile-foot"><span>{service.authModes.map((mode) => authNames[mode]).join(" · ")}</span><b>＋</b></div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {view === "clients" && (
+          <>
+            <header className="page-header compact-header">
+              <div><p className="eyebrow">Configuration</p><h1>AI clients</h1><p>Install a profile into a supported client with an automatic backup.</p></div>
+            </header>
+            <div className="client-list">
+              {data.hosts.map((host) => (
+                <div className="client-row" key={host.id}>
+                  <div className="client-logo">{host.name.slice(0, 1)}</div>
+                  <div className="client-copy"><strong>{host.name}</strong><span>{host.filePath}</span></div>
+                  <span className={`status ${host.configured ? "status-connected" : "status-ready"}`}><i />{host.configured ? "Configuration found" : "Not configured"}</span>
+                  <button className="button small ghost" onClick={() => host.configured ? window.mcpAccounts.openPath(host.filePath) : notify("Install a connection from its card to create this configuration.")}>Show</button>
+                </div>
+              ))}
+            </div>
+            <div className="notice client-notice">MCP Accounts merges only its named server entry and creates a timestamped backup before changing an existing client configuration.</div>
+          </>
+        )}
+
+        {view === "about" && (
+          <section className="about-page">
+            <div className="about-mark"><span /><span /><span /></div>
+            <p className="eyebrow">MVP 0.1.0</p>
+            <h1>Accounts belong to people,<br />not server URLs.</h1>
+            <p className="about-lede">MCP Accounts creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
+            <div className="about-grid">
+              <div><strong>Secure by default</strong><p>Secrets are encrypted through Electron’s macOS secure storage integration and never copied into client JSON.</p></div>
+              <div><strong>Visible routing</strong><p>Every profile gets a distinct name so an agent can’t silently confuse work, personal, and client accounts.</p></div>
+              <div><strong>Local first</strong><p>No MCP Accounts cloud, telemetry, or account registration is required for this MVP.</p></div>
+            </div>
+            <button className="text-button docs-link" onClick={() => window.mcpAccounts.openExternal("https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization")}>Read the MCP authorization specification ↗</button>
+          </section>
+        )}
+      </main>
+
+      {addingService && (
+        <AddConnection
+          service={addingService}
+          profile={editingProfile}
+          onClose={() => { setAddingService(undefined); setEditingProfile(undefined); }}
+          onSaved={async () => {
+            setAddingService(undefined);
+            setEditingProfile(undefined);
+            setView("connections");
+            await refresh();
+            notify("Connection saved. Run Connect to authenticate and discover tools.");
+          }}
+          onRemove={editingProfile ? () => removeProfile(editingProfile).then(() => { setAddingService(undefined); setEditingProfile(undefined); }) : undefined}
+        />
+      )}
+      {configProfile && <ConfigSheet profile={configProfile} hosts={data.hosts} onClose={() => setConfigProfile(undefined)} notify={notify} />}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+export default App;
