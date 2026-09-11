@@ -27,7 +27,7 @@ Every profile receives a unique OAuth configuration directory. A token or dynami
 - A user with access to the logged-in macOS account and running process inspection tools may be able to inspect child-process environments.
 - Upstream MCP servers and connected AI hosts remain separate trust boundaries.
 - Provider-specific OAuth implementations may reject proxy clients or impose additional account and organization policies.
-- Deleting a profile does not revoke provider-side OAuth grants or remove manually exported third-party configuration. Matching MCP Accounts entries in supported client configuration are removed with a backup.
+- Deleting a profile does not revoke provider-side OAuth grants or remove manually exported third-party configuration. Matching MCP Accounts entries in Claude Desktop, Codex, Cursor, and Windsurf are removed with a backup.
 - Client configuration formats can evolve; unsupported or malformed files are skipped and surfaced as a local warning.
 
 Do not connect production databases or high-value write credentials during initial testing. Use narrowly scoped or read-only profiles whenever the provider supports them.

@@ -10,7 +10,7 @@ The MVP includes:
 - Profile-specific OAuth storage via `MCP_REMOTE_CONFIG_DIR`.
 - Encrypted local storage for PATs and API tokens through Electron `safeStorage` on macOS.
 - A bridge mode that keeps credentials out of generated MCP client configuration.
-- One-click configuration installation for Claude Desktop, Cursor, and Windsurf.
+- One-click configuration installation for Claude Desktop, Codex, Cursor, and Windsurf.
 - Read-only discovery of configured MCP servers in Claude Desktop, Claude Code, Codex, Cursor, Windsurf, VS Code, and Zed.
 - Metadata-only import for existing remote servers, with managed profiles recognized automatically.
 - Timestamped backups before existing host configuration is changed.
@@ -74,6 +74,6 @@ Static credentials are supplied to the bridge through the child process environm
 - Framer and Higgsfield are adapter slots until a compatible MCP endpoint is supplied.
 - Vercel only accepts reviewed MCP clients, so its behavior through the bridge must be validated.
 - GitHub PAT authentication is the most predictable personal-MVP path. OAuth through the remote GitHub server may require a registered GitHub App or OAuth App.
-- Deleting a profile removes its local encrypted credential and OAuth directory, plus matching MCP Accounts entries in Claude Desktop, Cursor, and Windsurf (with backups). It does not remove manually exported configuration or revoke provider-side grants.
+- Deleting a profile removes its local encrypted credential and OAuth directory, plus matching MCP Accounts entries in Claude Desktop, Codex, Cursor, and Windsurf (with backups). It does not remove manually exported configuration or revoke provider-side grants.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the public-beta work.

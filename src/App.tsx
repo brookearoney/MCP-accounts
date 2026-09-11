@@ -507,7 +507,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.3.0</span>
+          <span className="version">MVP 0.3.4</span>
         </div>
       </aside>
 
@@ -617,7 +617,7 @@ function App() {
               <h2>Connect, then install it in your AI client.</h2>
               <div className="finish-steps">
                 <div><span>1</span><strong>Run Connect</strong><p>Complete the browser sign-in or test your token. OAuth data stays separate for this profile.</p></div>
-                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Cursor, or Windsurf. MCP Accounts makes a backup before changing a client file.</p></div>
+                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Codex, Cursor, or Windsurf. MCP Accounts makes a backup before changing a client file.</p></div>
                 <div><span>3</span><strong>Restart the client</strong><p>Your AI client will see a distinct server name for this specific account profile.</p></div>
               </div>
             </section>
@@ -722,7 +722,7 @@ function App() {
         {view === "about" && (
           <section className="about-page">
             <div className="about-mark"><span /><span /><span /></div>
-            <p className="eyebrow">MVP 0.3.0</p>
+            <p className="eyebrow">MVP 0.3.4</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
             <p className="about-lede">MCP Accounts creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">

@@ -2,13 +2,14 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const { ProfileStore } = require("./store.cjs");
 const { services } = require("./services.cjs");
-const { discoverMcpConnections } = require("./discovery.cjs");
+const { discoverMcpConnections, parseCodexServers } = require("./discovery.cjs");
 const { bridgeEnvironment, findExecutable, stopChildProcess } = require("./runtime.cjs");
 const {
   buildBridgeCommand,
+  managedProfileId,
   mergeHostConfig,
   profileServerName,
   redact,
@@ -109,7 +110,7 @@ function createWindow() {
   if (process.env.MCP_ACCOUNTS_SCREENSHOT_PATH) {
     mainWindow.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
-        const screenshotViews = { guide: 1, detected: 2 };
+        const screenshotViews = { guide: 1, detected: 2, clients: 4 };
         const screenshotIndex = screenshotViews[process.env.MCP_ACCOUNTS_SCREENSHOT_VIEW];
         if (Number.isInteger(screenshotIndex)) {
           await mainWindow.webContents.executeJavaScript(`document.querySelectorAll('nav button')[${screenshotIndex}]?.click()`);
@@ -148,6 +149,11 @@ const hosts = [
     name: "Windsurf",
     filePath: path.join(os.homedir(), ".codeium", "windsurf", "mcp_config.json"),
   },
+  {
+    id: "codex",
+    name: "Codex",
+    filePath: path.join(os.homedir(), ".codex", "config.toml"),
+  },
 ];
 
 function readJson(filePath) {
@@ -172,13 +178,94 @@ function writeJsonWithBackup(filePath, value) {
   return backupPath;
 }
 
-function removeInstalledHostEntries(profileId) {
+function codexPath() {
+  return findExecutable("codex") || "codex";
+}
+
+function runCodexMcp(args) {
+  const result = spawnSync(codexPath(), ["mcp", ...args], {
+    encoding: "utf8",
+    env: bridgeEnvironment({}),
+    timeout: 30000,
+  });
+  if (result.error) throw new Error(`Could not run Codex: ${result.error.message}`);
+  return result;
+}
+
+function codexError(result) {
+  return redact(String(result.stderr || result.stdout || "Codex rejected the configuration.").trim());
+}
+
+function backupExistingFile(filePath) {
+  if (!fs.existsSync(filePath)) return "";
+  const backupPath = `${filePath}.mcp-accounts-backup-${Date.now()}`;
+  fs.copyFileSync(filePath, backupPath);
+  return backupPath;
+}
+
+function codexServerNamesForProfile(profile) {
+  if (!fs.existsSync(path.join(os.homedir(), ".codex", "config.toml"))) return [profileServerName(profile)];
+  try {
+    const config = fs.readFileSync(path.join(os.homedir(), ".codex", "config.toml"), "utf8");
+    const names = Object.entries(parseCodexServers(config))
+      .filter(([, entry]) => managedProfileId(entry) === profile.id)
+      .map(([name]) => name);
+    return names.length ? names : [profileServerName(profile)];
+  } catch {
+    return [profileServerName(profile)];
+  }
+}
+
+function removeCodexServersForProfile(profile) {
+  let removed = 0;
+  for (const serverName of codexServerNamesForProfile(profile)) {
+    const existing = runCodexMcp(["get", serverName]);
+    if (existing.status !== 0) continue;
+    const result = runCodexMcp(["remove", serverName]);
+    if (result.status !== 0) throw new Error(codexError(result));
+    removed += 1;
+  }
+  return removed;
+}
+
+function installCodexHost(host, profile) {
+  const serverName = profileServerName(profile);
+  const entry = bridgeEntry(profile);
+  const hadOriginal = fs.existsSync(host.filePath);
+  const original = hadOriginal ? fs.readFileSync(host.filePath, "utf8") : "";
+  const backupPath = backupExistingFile(host.filePath);
+
+  try {
+    removeCodexServersForProfile(profile);
+    const added = runCodexMcp(["add", serverName, "--", entry.command, ...entry.args]);
+    if (added.status !== 0) throw new Error(codexError(added));
+  } catch (error) {
+    if (hadOriginal) fs.writeFileSync(host.filePath, original, { mode: 0o600 });
+    throw error;
+  }
+
+  return { filePath: host.filePath, backupPath, serverName };
+}
+
+function removeInstalledHostEntries(profile) {
   let installationsRemoved = 0;
   const warnings = [];
   for (const host of hosts) {
     if (!fs.existsSync(host.filePath)) continue;
     try {
-      const result = removeManagedProfileEntries(readJson(host.filePath), profileId);
+      if (host.id === "codex") {
+        const backupPath = backupExistingFile(host.filePath);
+        let removed = 0;
+        try {
+          removed = removeCodexServersForProfile(profile);
+        } catch (error) {
+          if (backupPath) fs.copyFileSync(backupPath, host.filePath);
+          throw error;
+        }
+        installationsRemoved += removed;
+        continue;
+      }
+      const result = removeManagedProfileEntries(readJson(host.filePath), profile.id);
       if (!result.removedServerNames.length) continue;
       writeJsonWithBackup(host.filePath, result.config);
       installationsRemoved += result.removedServerNames.length;
@@ -206,12 +293,14 @@ function registerIpc() {
 
   ipcMain.handle("profiles:save", (_event, input) => store.upsert(input));
   ipcMain.handle("profiles:remove", (_event, id) => {
+    const profile = store.get(id);
+    if (!profile) return { removed: false, installationsRemoved: 0, warnings: [] };
     const child = activeChecks.get(id);
     if (child) {
       cancelledChecks.add(id);
       stopChildProcess(child);
     }
-    const removal = removeInstalledHostEntries(id);
+    const removal = removeInstalledHostEntries(profile);
     return { removed: store.remove(id), ...removal };
   });
 
@@ -254,6 +343,7 @@ function registerIpc() {
     const profile = store.get(profileId);
     if (!host) throw new Error("Unknown MCP host");
     if (!profile) throw new Error("Connection not found");
+    if (host.id === "codex") return installCodexHost(host, profile);
     const name = profileServerName(profile);
     const merged = mergeHostConfig(readJson(host.filePath), name, bridgeEntry(profile));
     const backupPath = writeJsonWithBackup(host.filePath, merged);

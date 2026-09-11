@@ -11,6 +11,7 @@
 - [x] Claude Desktop configuration adapter
 - [x] Cursor configuration adapter
 - [x] Windsurf configuration adapter
+- [x] Codex configuration adapter
 - [x] Automatic configuration backups
 - [x] Supabase project/read-only URL builder
 - [x] Linear read-only endpoint
@@ -27,7 +28,6 @@
 ## Public beta
 
 - Bundle a pinned, audited MCP bridge instead of invoking `npx`.
-- Add a Codex host configuration adapter.
 - Add VS Code and Raycast host adapters.
 - Add host-entry removal and rename reconciliation.
 - Add OAuth registration recovery when cached client metadata becomes stale.

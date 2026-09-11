@@ -1,6 +1,6 @@
 {
   "name": "mcp-accounts",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A local-first macOS profile manager for multiple accounts on the same MCP server.",
   "main": "electron/main.cjs",
   "author": "Brooke Roney",

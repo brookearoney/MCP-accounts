@@ -108,6 +108,7 @@ function publicProfile(profile) {
 module.exports = {
   buildBridgeCommand,
   buildEndpoint,
+  managedProfileId,
   mergeHostConfig,
   removeManagedProfileEntries,
   profileServerName,
