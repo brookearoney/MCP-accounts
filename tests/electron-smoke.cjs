@@ -30,6 +30,11 @@ async function main() {
 
   const authDirectory = store.authDirectory(profile.id);
   fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
+  const reset = store.resetAuth(profile.id);
+  assert.equal(reset.status, "ready");
+  assert.equal(fs.existsSync(authDirectory), false);
+  fs.mkdirSync(authDirectory, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
   assert.equal(store.remove(profile.id), true);
   assert.equal(fs.existsSync(authDirectory), false);
   assert.equal(store.list().length, 0);

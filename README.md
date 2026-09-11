@@ -74,6 +74,6 @@ Static credentials are supplied to the bridge through the child process environm
 - Framer and Higgsfield are adapter slots until a compatible MCP endpoint is supplied.
 - Vercel only accepts reviewed MCP clients, so its behavior through the bridge must be validated.
 - GitHub PAT authentication is the most predictable personal-MVP path. OAuth through the remote GitHub server may require a registered GitHub App or OAuth App.
-- Deleting a profile removes its local encrypted credential and OAuth directory, but does not yet remove previously installed entries from third-party host configuration or revoke provider-side grants.
+- Deleting a profile removes its local encrypted credential and OAuth directory, plus matching MCP Accounts entries in Claude Desktop, Cursor, and Windsurf (with backups). It does not remove manually exported configuration or revoke provider-side grants.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the public-beta work.

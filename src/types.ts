@@ -114,7 +114,8 @@ export interface MCPAccountsApi {
   bootstrap: () => Promise<BootstrapData>;
   scanConnections: () => Promise<DiscoveryResult>;
   saveProfile: (input: ProfileInput) => Promise<Profile>;
-  removeProfile: (id: string) => Promise<boolean>;
+  removeProfile: (id: string) => Promise<{ removed: boolean; installationsRemoved: number; warnings: string[] }>;
+  resetProfileAuth: (id: string) => Promise<Profile>;
   getConfig: (id: string) => Promise<{ name: string; config: object }>;
   exportConfig: (id: string) => Promise<{ canceled: boolean; filePath?: string }>;
   installHost: (hostId: string, profileId: string) => Promise<{ filePath: string; backupPath: string; serverName: string }>;

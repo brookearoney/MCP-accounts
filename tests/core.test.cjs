@@ -4,6 +4,7 @@ const {
   buildBridgeCommand,
   buildEndpoint,
   mergeHostConfig,
+  removeManagedProfileEntries,
   profileServerName,
   publicProfile,
   redact,
@@ -26,12 +27,28 @@ test("Supabase endpoint is project-scoped and read-only", () => {
   assert.equal(url.searchParams.get("features"), "database,docs");
 });
 
+test("Supabase access can be changed from read-only to read/write", () => {
+  const endpoint = buildEndpoint(
+    { id: "supabase", endpoint: "https://mcp.supabase.com/mcp" },
+    { endpoint: "https://mcp.supabase.com/mcp?project_ref=abc123&read_only=true", scope: "abc123", readOnly: false },
+  );
+  assert.equal(new URL(endpoint).searchParams.has("read_only"), false);
+});
+
 test("Linear read-only endpoint is isolated", () => {
   const endpoint = buildEndpoint(
     { id: "linear", endpoint: "https://mcp.linear.app/mcp" },
     { readOnly: true },
   );
   assert.equal(endpoint, "https://mcp.linear.app/mcp/readonly");
+});
+
+test("Linear access can be changed from read-only to read/write", () => {
+  const endpoint = buildEndpoint(
+    { id: "linear", endpoint: "https://mcp.linear.app/mcp" },
+    { endpoint: "https://mcp.linear.app/mcp/readonly", readOnly: false },
+  );
+  assert.equal(endpoint, "https://mcp.linear.app/mcp");
 });
 
 test("Sentry endpoint accepts an organization/project scope", () => {
@@ -51,6 +68,30 @@ test("host configuration merge preserves unrelated settings", () => {
   assert.equal(merged.theme, "dark");
   assert.equal(merged.mcpServers.existing.command, "old");
   assert.equal(merged.mcpServers.github_work_abcd.args[1], "abcd");
+});
+
+test("removing a profile removes only its managed host entry", () => {
+  const result = removeManagedProfileEntries(
+    {
+      theme: "dark",
+      mcpServers: {
+        managed: {
+          command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts",
+          args: ["--mcp-profile", "profile-to-delete"],
+        },
+        otherManaged: {
+          command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts",
+          args: ["--mcp-profile", "profile-to-keep"],
+        },
+        unrelated: { command: "other-mcp", args: ["--mcp-profile", "profile-to-delete"] },
+      },
+    },
+    "profile-to-delete",
+  );
+  assert.deepEqual(result.removedServerNames, ["managed"]);
+  assert.equal(result.config.theme, "dark");
+  assert.ok(result.config.mcpServers.otherManaged);
+  assert.ok(result.config.mcpServers.unrelated);
 });
 
 test("bridge commands contain a profile id but no credential", () => {

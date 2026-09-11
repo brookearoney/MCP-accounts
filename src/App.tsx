@@ -68,6 +68,7 @@ function AddConnection({
   onClose,
   onSaved,
   onRemove,
+  onResetAuth,
   initialInput,
 }: {
   service: ServiceDefinition;
@@ -75,6 +76,7 @@ function AddConnection({
   onClose: () => void;
   onSaved: (profile: Profile) => void;
   onRemove?: () => void;
+  onResetAuth?: () => void | Promise<void>;
   initialInput?: Partial<ProfileInput>;
 }) {
   const [input, setInput] = useState<ProfileInput>(() => ({
@@ -248,6 +250,7 @@ function AddConnection({
         {error && <div className="form-error">{error}</div>}
 
         <footer className="modal-footer">
+          {profile?.authType === "oauth" && onResetAuth && <button type="button" className="button ghost" onClick={onResetAuth}>Reset sign-in</button>}
           {profile && onRemove && <button type="button" className="button danger-button" onClick={onRemove}>Remove</button>}
           <span className="footer-spacer" />
           <button type="button" className="button ghost" onClick={onClose}>Cancel</button>
@@ -437,10 +440,40 @@ function App() {
   }
 
   async function removeProfile(profile: Profile) {
-    if (!window.confirm(`Remove “${profile.serviceName} · ${profile.label}”? Existing host config entries are left intact.`)) return;
-    await window.mcpAccounts.removeProfile(profile.id);
+    if (!window.confirm(`Remove “${profile.serviceName} · ${profile.label}”? Its local sign-in data and MCP Accounts entries installed in supported clients will be removed.`)) return;
+    const result = await window.mcpAccounts.removeProfile(profile.id);
+    if (!result.removed) {
+      notify("Connection was already removed.");
+      return;
+    }
     await refresh();
-    notify("Connection removed.");
+    const cleanup = result.installationsRemoved ? ` Removed ${result.installationsRemoved} installed client entr${result.installationsRemoved === 1 ? "y" : "ies"}.` : "";
+    const warning = result.warnings.length ? " Some client configuration files could not be updated." : "";
+    notify(`Connection removed.${cleanup}${warning}`);
+  }
+
+  function openProfileEditor(profile: Profile) {
+    const service = serviceMap[profile.serviceId];
+    if (!service) {
+      notify("The saved service preset is unavailable.");
+      return;
+    }
+    setDiscoverySeed(undefined);
+    setEditingProfile(profile);
+    setAddingService(service);
+  }
+
+  async function resetProfileAuth(profile: Profile) {
+    if (!window.confirm(`Reset the saved sign-in for “${profile.serviceName} · ${profile.label}”? You will sign in again, but this profile and its installed client entries stay in place.`)) return;
+    try {
+      await window.mcpAccounts.resetProfileAuth(profile.id);
+      setAddingService(undefined);
+      setEditingProfile(undefined);
+      await refresh();
+      notify("Sign-in reset. Click Connect to authenticate again.");
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   if (!data) {
@@ -529,8 +562,9 @@ function App() {
                             {profile.authType === "oauth" ? "Connect" : "Test"}
                           </button>
                         )}
+                        {service?.supportsReadOnly && <button className="button small ghost" onClick={() => openProfileEditor(profile)}>{profile.readOnly ? "Read-only · Change" : "Read/write · Change"}</button>}
                         <button className="button small ghost" onClick={() => setConfigProfile(profile)}>Install</button>
-                        <button className="icon-button subtle" onClick={() => { setDiscoverySeed(undefined); setEditingProfile(profile); setAddingService(service); }}>•••</button>
+                        <button className="button small ghost" onClick={() => openProfileEditor(profile)}>Edit</button>
                       </div>
                       {(logs[profile.id]?.length || profile.lastError) && (
                         <div className="connection-log">
@@ -716,6 +750,7 @@ function App() {
             notify("Connection saved. Run Connect to authenticate and discover tools.");
           }}
           onRemove={editingProfile ? () => removeProfile(editingProfile).then(() => { setAddingService(undefined); setEditingProfile(undefined); }) : undefined}
+          onResetAuth={editingProfile?.authType === "oauth" ? () => resetProfileAuth(editingProfile) : undefined}
         />
       )}
       {configProfile && <ConfigSheet profile={configProfile} hosts={data.hosts} onClose={() => setConfigProfile(undefined)} notify={notify} />}

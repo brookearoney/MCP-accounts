@@ -12,6 +12,7 @@ const {
   mergeHostConfig,
   profileServerName,
   redact,
+  removeManagedProfileEntries,
 } = require("./core.cjs");
 
 const bridgeArgIndex = process.argv.indexOf("--mcp-profile");
@@ -171,6 +172,23 @@ function writeJsonWithBackup(filePath, value) {
   return backupPath;
 }
 
+function removeInstalledHostEntries(profileId) {
+  let installationsRemoved = 0;
+  const warnings = [];
+  for (const host of hosts) {
+    if (!fs.existsSync(host.filePath)) continue;
+    try {
+      const result = removeManagedProfileEntries(readJson(host.filePath), profileId);
+      if (!result.removedServerNames.length) continue;
+      writeJsonWithBackup(host.filePath, result.config);
+      installationsRemoved += result.removedServerNames.length;
+    } catch (error) {
+      warnings.push(`${host.name}: ${error.message}`);
+    }
+  }
+  return { installationsRemoved, warnings };
+}
+
 function registerIpc() {
   ipcMain.handle("app:bootstrap", () => ({
     services,
@@ -193,7 +211,18 @@ function registerIpc() {
       cancelledChecks.add(id);
       stopChildProcess(child);
     }
-    return store.remove(id);
+    const removal = removeInstalledHostEntries(id);
+    return { removed: store.remove(id), ...removal };
+  });
+
+  ipcMain.handle("profiles:resetAuth", (_event, id) => {
+    const child = activeChecks.get(id);
+    if (child) {
+      cancelledChecks.add(id);
+      stopChildProcess(child);
+      activeChecks.delete(id);
+    }
+    return store.resetAuth(id);
   });
 
   ipcMain.handle("profiles:config", (_event, id) => {

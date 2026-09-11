@@ -112,6 +112,20 @@ class ProfileStore {
     return true;
   }
 
+  resetAuth(id) {
+    const profile = this.get(id);
+    if (!profile) throw new Error("Connection not found");
+    const authPath = path.join(this.authRoot, id);
+    if (authPath.startsWith(`${this.authRoot}${path.sep}`)) {
+      fs.rmSync(authPath, { recursive: true, force: true });
+    }
+    profile.status = "ready";
+    profile.lastError = "";
+    profile.updatedAt = new Date().toISOString();
+    this.save();
+    return publicProfile(profile);
+  }
+
   decryptSecret(profile) {
     if (!profile?.encryptedSecret) return "";
     if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");

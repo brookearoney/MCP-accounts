@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("mcpAccounts", {
   scanConnections: () => ipcRenderer.invoke("discovery:scan"),
   saveProfile: (input) => ipcRenderer.invoke("profiles:save", input),
   removeProfile: (id) => ipcRenderer.invoke("profiles:remove", id),
+  resetProfileAuth: (id) => ipcRenderer.invoke("profiles:resetAuth", id),
   getConfig: (id) => ipcRenderer.invoke("profiles:config", id),
   exportConfig: (id) => ipcRenderer.invoke("profiles:export", id),
   installHost: (hostId, profileId) => ipcRenderer.invoke("hosts:install", { hostId, profileId }),
