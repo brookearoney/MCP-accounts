@@ -6,6 +6,7 @@ const { spawn } = require("node:child_process");
 const { ProfileStore } = require("./store.cjs");
 const { services } = require("./services.cjs");
 const { discoverMcpConnections } = require("./discovery.cjs");
+const { bridgeEnvironment, findExecutable } = require("./runtime.cjs");
 const {
   buildBridgeCommand,
   mergeHostConfig,
@@ -22,16 +23,12 @@ let store;
 const activeChecks = new Map();
 
 function npxPath() {
-  const candidates = [
-    "/opt/homebrew/bin/npx",
-    "/usr/local/bin/npx",
-    path.join(path.dirname(process.execPath), "npx"),
-  ];
-  const fromPath = String(process.env.PATH || "")
-    .split(path.delimiter)
-    .filter(Boolean)
-    .map((directory) => path.join(directory, "npx"));
-  return [...candidates, ...fromPath].find((candidate) => fs.existsSync(candidate)) || "npx";
+  return findExecutable("npx") || "npx";
+}
+
+function ensureNodeRuntime() {
+  if (findExecutable("node") && findExecutable("npx")) return;
+  throw new Error("MCP Accounts needs Node.js 20 or newer to run MCP bridges. Install Node.js, then reopen the app.");
 }
 
 function mcpRemoteArgs(profile, clientMode = false) {
@@ -56,12 +53,18 @@ async function runBridge() {
   }
 
   const secret = store.decryptSecret(profile);
+  try {
+    ensureNodeRuntime();
+  } catch (error) {
+    process.stderr.write(`MCP Accounts: ${error.message}\n`);
+    app.exit(1);
+    return;
+  }
   const child = spawn(npxPath(), mcpRemoteArgs(profile), {
-    env: {
-      ...process.env,
+    env: bridgeEnvironment({
       MCP_ACCOUNTS_TOKEN: secret,
       MCP_REMOTE_CONFIG_DIR: store.authDirectory(profile.id),
-    },
+    }),
     stdio: ["inherit", "inherit", "inherit"],
   });
 
@@ -227,15 +230,15 @@ function registerIpc() {
     const profile = store.get(id);
     if (!profile) throw new Error("Connection not found");
     if (activeChecks.has(id)) return { started: false, reason: "already-running" };
+    ensureNodeRuntime();
 
     store.setStatus(id, "connecting");
     const secret = store.decryptSecret(profile);
     const child = spawn(npxPath(), mcpRemoteArgs(profile, true), {
-      env: {
-        ...process.env,
+      env: bridgeEnvironment({
         MCP_ACCOUNTS_TOKEN: secret,
         MCP_REMOTE_CONFIG_DIR: store.authDirectory(id),
-      },
+      }),
       stdio: ["ignore", "pipe", "pipe"],
     });
     activeChecks.set(id, child);
