@@ -17,6 +17,7 @@
 - [x] Sentry organization/project scope
 - [x] Read-only discovery across popular local MCP clients
 - [x] Secret-safe metadata import from existing remote MCP configuration
+- [x] In-app account-connection guide
 - [ ] Live smoke test with two Supabase accounts
 - [ ] Live smoke test with two GitHub accounts
 - [ ] Verify Vercel client approval behavior
@@ -32,6 +33,7 @@
 - Add OAuth registration recovery when cached client metadata becomes stale.
 - Add explicit permission and scope review before installation.
 - Add profile colors and a mandatory destructive-tool confirmation policy.
+- Add a signed, hosted automatic-update channel after notarization and release hosting are configured.
 - Add richer migration for provider-specific scopes and aliases.
 - Add credential revocation links and secure OAuth reset.
 - Sign, harden, and notarize the application.

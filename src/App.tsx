@@ -10,7 +10,7 @@ import type {
   ServiceDefinition,
 } from "./types";
 
-type View = "connections" | "detected" | "catalog" | "clients" | "about";
+type View = "connections" | "guide" | "detected" | "catalog" | "clients" | "about";
 
 const authNames: Record<AuthType, string> = {
   oauth: "Browser OAuth",
@@ -434,6 +434,7 @@ function App() {
 
   const navItems: { id: View; label: string; glyph: string }[] = [
     { id: "connections", label: "Connections", glyph: "⌘" },
+    { id: "guide", label: "How to connect", glyph: "?" },
     { id: "detected", label: "Detected on Mac", glyph: "◎" },
     { id: "catalog", label: "Service catalog", glyph: "◫" },
     { id: "clients", label: "AI clients", glyph: "↗" },
@@ -458,7 +459,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.2.0</span>
+          <span className="version">MVP 0.3.0</span>
         </div>
       </aside>
 
@@ -525,6 +526,51 @@ function App() {
               </div>
             )}
           </>
+        )}
+
+        {view === "guide" && (
+          <section className="guide-page">
+            <header className="page-header compact-header">
+              <div><p className="eyebrow">Plain-language setup</p><h1>How to connect an account</h1><p>Create one profile for each account and workspace you want an AI client to use.</p></div>
+              <button className="button primary" onClick={() => setView("catalog")}><span>＋</span>Add account</button>
+            </header>
+
+            <div className="guide-rule"><span>1</span><div><strong>One profile = one account boundary</strong><p>For example: “GitHub · Work,” “GitHub · Personal,” and “Supabase · Client A” are separate profiles—even when they use the same MCP server.</p></div></div>
+
+            <div className="guide-grid">
+              <article className="guide-card">
+                <div className="guide-card-heading"><span className="guide-route">A</span><div><p className="eyebrow">Already connected elsewhere</p><h2>Bring it in from this Mac</h2></div></div>
+                <ol className="guide-steps">
+                  <li><b>1</b><div><strong>Open Detected on Mac</strong><span>Review MCP servers found in your installed AI clients.</span></div></li>
+                  <li><b>2</b><div><strong>Choose Import metadata</strong><span>The service and endpoint are copied, not the other app’s credential.</span></div></li>
+                  <li><b>3</b><div><strong>Name and authenticate it</strong><span>Give it a clear account label, then sign in or enter a fresh scoped token.</span></div></li>
+                </ol>
+                <button className="text-button guide-action" onClick={() => setView("detected")}>Open Detected on Mac →</button>
+              </article>
+
+              <article className="guide-card">
+                <div className="guide-card-heading"><span className="guide-route">B</span><div><p className="eyebrow">New server or account</p><h2>Set it up from scratch</h2></div></div>
+                <ol className="guide-steps">
+                  <li><b>1</b><div><strong>Pick a service</strong><span>Open Service catalog, or use Custom MCP for any compatible HTTP endpoint.</span></div></li>
+                  <li><b>2</b><div><strong>Describe the boundary</strong><span>Enter a connection name, optional account hint, and project or organization scope.</span></div></li>
+                  <li><b>3</b><div><strong>Choose authentication</strong><span>Use browser sign-in for OAuth, or add a narrowly scoped token stored with macOS encryption.</span></div></li>
+                </ol>
+                <button className="text-button guide-action" onClick={() => setView("catalog")}>Browse services →</button>
+              </article>
+            </div>
+
+            <section className="guide-finish">
+              <p className="eyebrow">Finish the connection</p>
+              <h2>Connect, then install it in your AI client.</h2>
+              <div className="finish-steps">
+                <div><span>1</span><strong>Run Connect</strong><p>Complete the browser sign-in or test your token. OAuth data stays separate for this profile.</p></div>
+                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Cursor, or Windsurf. MCP Accounts makes a backup before changing a client file.</p></div>
+                <div><span>3</span><strong>Restart the client</strong><p>Your AI client will see a distinct server name for this specific account profile.</p></div>
+              </div>
+            </section>
+
+            <div className="notice guide-notice"><strong>What we do not import:</strong> OAuth sessions, browser cookies, Keychain values, and token values belonging to another app. That keeps each account profile secure and independent.</div>
+          </section>
         )}
 
         {view === "detected" && (
@@ -623,7 +669,7 @@ function App() {
         {view === "about" && (
           <section className="about-page">
             <div className="about-mark"><span /><span /><span /></div>
-            <p className="eyebrow">MVP 0.2.0</p>
+            <p className="eyebrow">MVP 0.3.0</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
             <p className="about-lede">MCP Accounts creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">

@@ -5,6 +5,7 @@ MCP Accounts is a local-first macOS utility for connecting more than one identit
 The MVP includes:
 
 - A native-feeling Electron interface for connection profiles.
+- A left-panel “How to connect” guide that walks through imported and new account setup.
 - Presets for Supabase, GitHub, Vercel, Higgsfield, Framer, Linear, Sentry, Stripe, Cloudflare, Atlassian, and custom servers.
 - Profile-specific OAuth storage via `MCP_REMOTE_CONFIG_DIR`.
 - Encrypted local storage for PATs and API tokens through Electron `safeStorage` on macOS.

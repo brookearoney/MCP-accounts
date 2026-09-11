@@ -103,8 +103,10 @@ function createWindow() {
   if (process.env.MCP_ACCOUNTS_SCREENSHOT_PATH) {
     mainWindow.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
-        if (process.env.MCP_ACCOUNTS_SCREENSHOT_VIEW === "detected") {
-          await mainWindow.webContents.executeJavaScript("document.querySelectorAll('nav button')[1]?.click()");
+        const screenshotViews = { guide: 1, detected: 2 };
+        const screenshotIndex = screenshotViews[process.env.MCP_ACCOUNTS_SCREENSHOT_VIEW];
+        if (Number.isInteger(screenshotIndex)) {
+          await mainWindow.webContents.executeJavaScript(`document.querySelectorAll('nav button')[${screenshotIndex}]?.click()`);
           await new Promise((resolve) => setTimeout(resolve, 350));
         }
         const image = await mainWindow.capturePage();
