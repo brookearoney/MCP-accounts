@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("mcpAccounts", {
   bootstrap: () => ipcRenderer.invoke("app:bootstrap"),
+  scanConnections: () => ipcRenderer.invoke("discovery:scan"),
   saveProfile: (input) => ipcRenderer.invoke("profiles:save", input),
   removeProfile: (id) => ipcRenderer.invoke("profiles:remove", id),
   getConfig: (id) => ipcRenderer.invoke("profiles:config", id),

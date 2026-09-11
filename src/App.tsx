@@ -3,13 +3,14 @@ import type {
   AuthType,
   BootstrapData,
   ConnectionEvent,
+  DetectedConnection,
   HostDefinition,
   Profile,
   ProfileInput,
   ServiceDefinition,
 } from "./types";
 
-type View = "connections" | "catalog" | "clients" | "about";
+type View = "connections" | "detected" | "catalog" | "clients" | "about";
 
 const authNames: Record<AuthType, string> = {
   oauth: "Browser OAuth",
@@ -67,26 +68,29 @@ function AddConnection({
   onClose,
   onSaved,
   onRemove,
+  initialInput,
 }: {
   service: ServiceDefinition;
   profile?: Profile;
   onClose: () => void;
   onSaved: (profile: Profile) => void;
   onRemove?: () => void;
+  initialInput?: Partial<ProfileInput>;
 }) {
   const [input, setInput] = useState<ProfileInput>(() => ({
     ...emptyInput,
+    ...initialInput,
     id: profile?.id,
     serviceId: service.id,
-    label: profile?.label || "",
-    accountHint: profile?.accountHint || "",
-    scope: profile?.scope || "",
-    endpoint: profile?.endpoint || service.endpoint,
-    authType: profile?.authType || service.authModes[0],
-    headerName: profile?.headerName || "Authorization",
-    headerPrefix: profile?.headerPrefix ?? "Bearer",
-    readOnly: profile?.readOnly ?? Boolean(service.supportsReadOnly),
-    features: profile?.features || "",
+    label: profile?.label || initialInput?.label || "",
+    accountHint: profile?.accountHint || initialInput?.accountHint || "",
+    scope: profile?.scope || initialInput?.scope || "",
+    endpoint: profile?.endpoint || initialInput?.endpoint || service.endpoint,
+    authType: profile?.authType || initialInput?.authType || service.authModes[0],
+    headerName: profile?.headerName || initialInput?.headerName || "Authorization",
+    headerPrefix: profile?.headerPrefix ?? initialInput?.headerPrefix ?? "Bearer",
+    readOnly: profile?.readOnly ?? initialInput?.readOnly ?? Boolean(service.supportsReadOnly),
+    features: profile?.features || initialInput?.features || "",
   }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -334,6 +338,7 @@ function App() {
   const [view, setView] = useState<View>("connections");
   const [addingService, setAddingService] = useState<ServiceDefinition>();
   const [editingProfile, setEditingProfile] = useState<Profile>();
+  const [discoverySeed, setDiscoverySeed] = useState<Partial<ProfileInput>>();
   const [configProfile, setConfigProfile] = useState<Profile>();
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [toast, setToast] = useState("");
@@ -368,6 +373,8 @@ function App() {
     return haystack.includes(query.toLowerCase());
   });
 
+  const importableDetections = (data?.discovery.connections || []).filter((connection) => connection.importable);
+
   function notify(message: string) {
     setToast(message);
   }
@@ -380,6 +387,38 @@ function App() {
     } catch (cause) {
       notify(cause instanceof Error ? cause.message : String(cause));
     }
+  }
+
+  async function scanConnections() {
+    try {
+      const discovery = await window.mcpAccounts.scanConnections();
+      setData((previous) => previous ? { ...previous, discovery } : previous);
+      notify(`Found ${discovery.connections.length} configured MCP connection${discovery.connections.length === 1 ? "" : "s"}.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  function importDetection(connection: DetectedConnection) {
+    const service = serviceMap[connection.serviceId] || serviceMap.custom;
+    const authType = service.authModes.includes(connection.suggestedAuthType)
+      ? connection.suggestedAuthType
+      : service.authModes.find((mode) => mode !== "oauth") || service.authModes[0];
+    setDiscoverySeed({
+      serviceId: service.id,
+      label: connection.profileLabel,
+      accountHint: connection.accountHint,
+      scope: connection.scope,
+      endpoint: connection.endpoint,
+      authType,
+      secret: "",
+      headerName: "Authorization",
+      headerPrefix: "Bearer",
+      readOnly: false,
+      features: "",
+    });
+    setEditingProfile(undefined);
+    setAddingService(service);
   }
 
   async function removeProfile(profile: Profile) {
@@ -395,6 +434,7 @@ function App() {
 
   const navItems: { id: View; label: string; glyph: string }[] = [
     { id: "connections", label: "Connections", glyph: "⌘" },
+    { id: "detected", label: "Detected on Mac", glyph: "◎" },
     { id: "catalog", label: "Service catalog", glyph: "◫" },
     { id: "clients", label: "AI clients", glyph: "↗" },
     { id: "about", label: "About", glyph: "i" },
@@ -412,12 +452,13 @@ function App() {
             <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
               <i>{item.glyph}</i>{item.label}
               {item.id === "connections" && <b>{data.profiles.length}</b>}
+              {item.id === "detected" && <b>{data.discovery.connections.length}</b>}
             </button>
           ))}
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.1.0</span>
+          <span className="version">MVP 0.2.0</span>
         </div>
       </aside>
 
@@ -434,6 +475,14 @@ function App() {
                 <div className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search accounts and projects" /></div>
                 <span className="connection-count">{filteredProfiles.length} connection{filteredProfiles.length === 1 ? "" : "s"}</span>
               </div>
+            )}
+
+            {importableDetections.length > 0 && (
+              <button className="discovery-banner" onClick={() => setView("detected")}>
+                <span className="discovery-pulse">◎</span>
+                <div><strong>{importableDetections.length} existing remote connection{importableDetections.length === 1 ? "" : "s"} can be imported</strong><small>Review what MCP Accounts found in local client configurations.</small></div>
+                <b>Review →</b>
+              </button>
             )}
 
             {data.profiles.length === 0 ? (
@@ -461,7 +510,7 @@ function App() {
                           {profile.status === "connecting" ? "Connecting…" : profile.authType === "oauth" ? "Connect" : "Test"}
                         </button>
                         <button className="button small ghost" onClick={() => setConfigProfile(profile)}>Install</button>
-                        <button className="icon-button subtle" onClick={() => { setEditingProfile(profile); setAddingService(service); }}>•••</button>
+                        <button className="icon-button subtle" onClick={() => { setDiscoverySeed(undefined); setEditingProfile(profile); setAddingService(service); }}>•••</button>
                       </div>
                       {(logs[profile.id]?.length || profile.lastError) && (
                         <div className="connection-log">
@@ -478,6 +527,62 @@ function App() {
           </>
         )}
 
+        {view === "detected" && (
+          <>
+            <header className="page-header compact-header">
+              <div><p className="eyebrow">Read-only discovery</p><h1>Detected on this Mac</h1><p>Configured MCP servers found in supported local AI clients.</p></div>
+              <button className="button" onClick={scanConnections}><span>↻</span>Scan again</button>
+            </header>
+
+            <div className="detection-summary">
+              <div><strong>{data.discovery.connections.length}</strong><span>configured servers</span></div>
+              <div><strong>{new Set(data.discovery.connections.map((connection) => connection.hostId)).size}</strong><span>clients with MCP</span></div>
+              <div><strong>{data.discovery.connections.filter((connection) => connection.managedProfileId).length}</strong><span>already managed</span></div>
+              <div><strong>{importableDetections.length}</strong><span>ready to import</span></div>
+            </div>
+
+            <div className="notice discovery-notice">
+              Discovery reads known local configuration files only. It reports server names, endpoints, commands, and credential-field names—but never sends token values to the interface. Cloud-only connectors and account emails hidden inside another app’s OAuth store cannot be identified safely.
+            </div>
+
+            {data.discovery.connections.length === 0 ? (
+              <section className="detected-empty"><span>◎</span><h2>No configured MCP servers found</h2><p>Add a connection manually or configure one in a supported client, then scan again.</p></section>
+            ) : (
+              <div className="detected-list">
+                {data.discovery.connections.map((connection) => {
+                  const service = serviceMap[connection.serviceId] || serviceMap.custom;
+                  const subtitle = connection.endpoint || `${connection.command || "Local command"} · stdio`;
+                  const connectionDetail = connection.scope || (!connection.endpoint ? "Local process" : "Account identity hidden by host");
+                  return (
+                    <article className="detected-card" key={connection.id}>
+                      <Icon service={service} />
+                      <div className="detected-copy">
+                        <div><strong>{connection.serviceName || service.name}</strong><span>·</span><b>{connection.profileLabel}</b></div>
+                        <p>{subtitle}</p>
+                        <small>{connection.hostName} · {connectionDetail}</small>
+                      </div>
+                      <span className={`detection-badge detection-${connection.authState}`}>
+                        {connection.managedProfileId ? "Managed" : connection.staleManagedProfile ? "Missing profile" : connection.authKind === "local" ? "Local server" : connection.authKind === "token" ? "Token configured" : "Host OAuth"}
+                      </span>
+                      {connection.importable ? (
+                        <button className="button small" onClick={() => importDetection(connection)}>Import metadata</button>
+                      ) : connection.managedProfileId ? (
+                        <button className="button small ghost" onClick={() => { setQuery(connection.profileLabel); setView("connections"); }}>Open</button>
+                      ) : (
+                        <button className="button small ghost" disabled>Detected</button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {data.discovery.warnings.length > 0 && (
+              <details className="scan-warnings"><summary>{data.discovery.warnings.length} configuration warning{data.discovery.warnings.length === 1 ? "" : "s"}</summary>{data.discovery.warnings.map((warning) => <p key={warning.sourcePath}><strong>{warning.hostName}:</strong> {warning.message}</p>)}</details>
+            )}
+          </>
+        )}
+
         {view === "catalog" && (
           <>
             <header className="page-header compact-header">
@@ -485,7 +590,7 @@ function App() {
             </header>
             <div className="catalog-grid">
               {data.services.map((service) => (
-                <button className="service-tile" key={service.id} onClick={() => { setEditingProfile(undefined); setAddingService(service); }}>
+                <button className="service-tile" key={service.id} onClick={() => { setEditingProfile(undefined); setDiscoverySeed(undefined); setAddingService(service); }}>
                   <div className="tile-top"><Icon service={service} size="large" /><span className={`maturity maturity-${service.maturity}`}>{maturityNames[service.maturity]}</span></div>
                   <strong>{service.name}</strong>
                   <p>{service.description}</p>
@@ -518,7 +623,7 @@ function App() {
         {view === "about" && (
           <section className="about-page">
             <div className="about-mark"><span /><span /><span /></div>
-            <p className="eyebrow">MVP 0.1.0</p>
+            <p className="eyebrow">MVP 0.2.0</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
             <p className="about-lede">MCP Accounts creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">
@@ -535,10 +640,12 @@ function App() {
         <AddConnection
           service={addingService}
           profile={editingProfile}
-          onClose={() => { setAddingService(undefined); setEditingProfile(undefined); }}
+          onClose={() => { setAddingService(undefined); setEditingProfile(undefined); setDiscoverySeed(undefined); }}
+          initialInput={discoverySeed}
           onSaved={async () => {
             setAddingService(undefined);
             setEditingProfile(undefined);
+            setDiscoverySeed(undefined);
             setView("connections");
             await refresh();
             notify("Connection saved. Run Connect to authenticate and discover tools.");

@@ -5,6 +5,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { ProfileStore } = require("./store.cjs");
 const { services } = require("./services.cjs");
+const { discoverMcpConnections } = require("./discovery.cjs");
 const {
   buildBridgeCommand,
   mergeHostConfig,
@@ -102,6 +103,10 @@ function createWindow() {
   if (process.env.MCP_ACCOUNTS_SCREENSHOT_PATH) {
     mainWindow.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
+        if (process.env.MCP_ACCOUNTS_SCREENSHOT_VIEW === "detected") {
+          await mainWindow.webContents.executeJavaScript("document.querySelectorAll('nav button')[1]?.click()");
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        }
         const image = await mainWindow.capturePage();
         fs.writeFileSync(process.env.MCP_ACCOUNTS_SCREENSHOT_PATH, image.toPNG());
         app.quit();
@@ -163,6 +168,7 @@ function registerIpc() {
   ipcMain.handle("app:bootstrap", () => ({
     services,
     profiles: store.list(),
+    discovery: discoverMcpConnections(store),
     hosts: hosts.map((host) => ({ ...host, configured: fs.existsSync(host.filePath) })),
     runtime: {
       packaged: app.isPackaged,
@@ -170,6 +176,8 @@ function registerIpc() {
       npx: npxPath(),
     },
   }));
+
+  ipcMain.handle("discovery:scan", () => discoverMcpConnections(store));
 
   ipcMain.handle("profiles:save", (_event, input) => store.upsert(input));
   ipcMain.handle("profiles:remove", (_event, id) => {

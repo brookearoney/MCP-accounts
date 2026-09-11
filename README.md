@@ -10,6 +10,8 @@ The MVP includes:
 - Encrypted local storage for PATs and API tokens through Electron `safeStorage` on macOS.
 - A bridge mode that keeps credentials out of generated MCP client configuration.
 - One-click configuration installation for Claude Desktop, Cursor, and Windsurf.
+- Read-only discovery of configured MCP servers in Claude Desktop, Claude Code, Codex, Cursor, Windsurf, VS Code, and Zed.
+- Metadata-only import for existing remote servers, with managed profiles recognized automatically.
 - Timestamped backups before existing host configuration is changed.
 - Redacted connection diagnostics.
 
@@ -65,6 +67,8 @@ Static credentials are supplied to the bridge through the child process environm
 ## Current boundaries
 
 - The MVP targets remote Streamable HTTP MCP endpoints.
+- Discovery reads known local configuration files. It can identify a provider, endpoint, project scope, and whether credential fields are configured, but it does not copy credential values.
+- Third-party clients commonly keep OAuth account identity and tokens in private stores. MCP Accounts therefore cannot safely infer an email address or reuse that authorization; imported metadata must be authenticated as a new isolated profile.
 - It uses `npx mcp-remote@latest`, so Node/npm and network access are required on first bridge launch.
 - Framer and Higgsfield are adapter slots until a compatible MCP endpoint is supplied.
 - Vercel only accepts reviewed MCP clients, so its behavior through the bridge must be validated.

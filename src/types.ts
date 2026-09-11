@@ -44,12 +44,49 @@ export interface HostDefinition {
 export interface BootstrapData {
   services: ServiceDefinition[];
   profiles: Profile[];
+  discovery: DiscoveryResult;
   hosts: HostDefinition[];
   runtime: {
     packaged: boolean;
     encryptionAvailable: boolean;
     npx: string;
   };
+}
+
+export interface DetectedConnection {
+  id: string;
+  hostId: string;
+  hostName: string;
+  serverName: string;
+  serviceId: string;
+  serviceName: string;
+  endpoint: string;
+  command: string;
+  scope: string;
+  accountHint: string;
+  profileLabel: string;
+  managedProfileId: string;
+  staleManagedProfile: boolean;
+  authKind: "managed" | "token" | "oauth" | "local";
+  authState: "managed" | "stale" | "configured" | "host-managed" | "local";
+  suggestedAuthType: AuthType;
+  importable: boolean;
+  sourcePath: string;
+  environmentKeys: string[];
+  headerKeys: string[];
+}
+
+export interface DiscoveryWarning {
+  hostName: string;
+  sourcePath: string;
+  message: string;
+}
+
+export interface DiscoveryResult {
+  scannedAt: string;
+  connections: DetectedConnection[];
+  warnings: DiscoveryWarning[];
+  scannedHosts: { id: string; name: string; sourcePath: string }[];
 }
 
 export interface ProfileInput {
@@ -75,6 +112,7 @@ export interface ConnectionEvent {
 
 export interface MCPAccountsApi {
   bootstrap: () => Promise<BootstrapData>;
+  scanConnections: () => Promise<DiscoveryResult>;
   saveProfile: (input: ProfileInput) => Promise<Profile>;
   removeProfile: (id: string) => Promise<boolean>;
   getConfig: (id: string) => Promise<{ name: string; config: object }>;
