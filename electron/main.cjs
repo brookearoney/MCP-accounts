@@ -6,7 +6,7 @@ const { spawn } = require("node:child_process");
 const { ProfileStore } = require("./store.cjs");
 const { services } = require("./services.cjs");
 const { discoverMcpConnections } = require("./discovery.cjs");
-const { bridgeEnvironment, findExecutable } = require("./runtime.cjs");
+const { bridgeEnvironment, findExecutable, stopChildProcess } = require("./runtime.cjs");
 const {
   buildBridgeCommand,
   mergeHostConfig,
@@ -21,6 +21,8 @@ const isBridgeMode = Boolean(bridgeProfileId);
 let mainWindow;
 let store;
 const activeChecks = new Map();
+const cancelledChecks = new Set();
+const cancellationReported = new Set();
 
 function npxPath() {
   return findExecutable("npx") || "npx";
@@ -187,7 +189,10 @@ function registerIpc() {
   ipcMain.handle("profiles:save", (_event, input) => store.upsert(input));
   ipcMain.handle("profiles:remove", (_event, id) => {
     const child = activeChecks.get(id);
-    if (child) child.kill("SIGTERM");
+    if (child) {
+      cancelledChecks.add(id);
+      stopChildProcess(child);
+    }
     return store.remove(id);
   });
 
@@ -231,6 +236,8 @@ function registerIpc() {
     if (!profile) throw new Error("Connection not found");
     if (activeChecks.has(id)) return { started: false, reason: "already-running" };
     ensureNodeRuntime();
+    cancelledChecks.delete(id);
+    cancellationReported.delete(id);
 
     store.setStatus(id, "connecting");
     const secret = store.decryptSecret(profile);
@@ -240,6 +247,7 @@ function registerIpc() {
         MCP_REMOTE_CONFIG_DIR: store.authDirectory(id),
       }),
       stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
     });
     activeChecks.set(id, child);
 
@@ -251,13 +259,26 @@ function registerIpc() {
     child.stdout.on("data", (data) => send("output", data.toString()));
     child.stderr.on("data", (data) => send("output", data.toString()));
     child.on("error", (error) => {
+      activeChecks.delete(id);
+      if (cancelledChecks.has(id)) {
+        if (!cancellationReported.has(id)) {
+          cancellationReported.add(id);
+          send("complete", "Connection canceled. You can try again when you are ready.");
+        }
+        return;
+      }
       const message = redact(error.message);
       store.setStatus(id, "error", message);
       send("error", message);
-      activeChecks.delete(id);
     });
     child.on("exit", (code) => {
       activeChecks.delete(id);
+      if (cancelledChecks.delete(id)) {
+        if (store.get(id)) store.setStatus(id, "ready");
+        if (!cancellationReported.has(id)) send("complete", "Connection canceled. You can try again when you are ready.");
+        cancellationReported.delete(id);
+        return;
+      }
       if (code === 0) {
         store.setStatus(id, "connected");
         send("complete", "Connection authenticated and tools discovered.");
@@ -273,7 +294,8 @@ function registerIpc() {
   ipcMain.handle("connections:cancel", (_event, id) => {
     const child = activeChecks.get(id);
     if (!child) return false;
-    child.kill("SIGTERM");
+    cancelledChecks.add(id);
+    stopChildProcess(child);
     activeChecks.delete(id);
     store.setStatus(id, "ready");
     return true;
@@ -311,7 +333,10 @@ if (isBridgeMode) {
     });
 
     app.on("before-quit", () => {
-      for (const child of activeChecks.values()) child.kill("SIGTERM");
+      for (const [id, child] of activeChecks) {
+        cancelledChecks.add(id);
+        stopChildProcess(child);
+      }
       activeChecks.clear();
     });
   }

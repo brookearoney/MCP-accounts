@@ -389,6 +389,21 @@ function App() {
     }
   }
 
+  async function cancelConnection(profile: Profile) {
+    try {
+      const canceled = await window.mcpAccounts.cancelConnection(profile.id);
+      if (!canceled) return;
+      setLogs((previous) => ({
+        ...previous,
+        [profile.id]: [...(previous[profile.id] || []), "Connection canceled. You can retry when you are ready."],
+      }));
+      await refresh();
+      notify("Connection canceled. The profile is ready to retry.");
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
   async function scanConnections() {
     try {
       const discovery = await window.mcpAccounts.scanConnections();
@@ -507,9 +522,13 @@ function App() {
                         </div>
                       </div>
                       <div className="connection-actions">
-                        <button className="button small" disabled={profile.status === "connecting"} onClick={() => startConnection(profile)}>
-                          {profile.status === "connecting" ? "Connecting…" : profile.authType === "oauth" ? "Connect" : "Test"}
-                        </button>
+                        {profile.status === "connecting" ? (
+                          <button className="button small danger-button" onClick={() => cancelConnection(profile)}>Cancel</button>
+                        ) : (
+                          <button className="button small" onClick={() => startConnection(profile)}>
+                            {profile.authType === "oauth" ? "Connect" : "Test"}
+                          </button>
+                        )}
                         <button className="button small ghost" onClick={() => setConfigProfile(profile)}>Install</button>
                         <button className="icon-button subtle" onClick={() => { setDiscoverySeed(undefined); setEditingProfile(profile); setAddingService(service); }}>•••</button>
                       </div>

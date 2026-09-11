@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { bridgeEnvironment, findExecutable, runtimePath } = require("../electron/runtime.cjs");
+const { bridgeEnvironment, findExecutable, runtimePath, stopChildProcess } = require("../electron/runtime.cjs");
 
 test("runtime lookup finds Homebrew or installer Node even when a GUI PATH omits it", () => {
   const existing = new Set(["/usr/local/bin/node", "/usr/local/bin/npx"]);
@@ -23,4 +23,11 @@ test("bridge environment retains the resolved Node directory and profile variabl
   assert.equal(environment.PATH.split(path.delimiter)[0], "/usr/local/bin");
   assert.equal(environment.MCP_ACCOUNTS_TOKEN, "test-only");
   assert.equal(environment.MCP_REMOTE_CONFIG_DIR, "/tmp/profile");
+});
+
+test("cancellation terminates the spawned Unix process group", () => {
+  const signals = [];
+  const child = { pid: 731, kill: () => assert.fail("group termination should be used") };
+  assert.equal(stopChildProcess(child, { platform: "darwin", kill: (...args) => signals.push(args) }), true);
+  assert.deepEqual(signals, [[-731, "SIGTERM"]]);
 });

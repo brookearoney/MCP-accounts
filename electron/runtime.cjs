@@ -53,8 +53,25 @@ function bridgeEnvironment(extra, options = {}) {
   };
 }
 
+function stopChildProcess(child, options = {}) {
+  if (!child) return false;
+  const platform = options.platform || process.platform;
+  const kill = options.kill || process.kill;
+  if (platform !== "win32" && child.pid) {
+    try {
+      kill(-child.pid, "SIGTERM");
+      return true;
+    } catch {
+      // A process group is not available for every spawned process.
+    }
+  }
+  child.kill?.("SIGTERM");
+  return true;
+}
+
 module.exports = {
   bridgeEnvironment,
   findExecutable,
   runtimePath,
+  stopChildProcess,
 };
