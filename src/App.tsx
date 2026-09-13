@@ -507,7 +507,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.3.5</span>
+          <span className="version">MVP 0.3.6</span>
         </div>
       </aside>
 
@@ -722,7 +722,7 @@ function App() {
         {view === "about" && (
           <section className="about-page">
             <div className="about-mark"><span /><span /><span /></div>
-            <p className="eyebrow">MVP 0.3.5</p>
+            <p className="eyebrow">MVP 0.3.6</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
             <p className="about-lede">MCP Accounts creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">

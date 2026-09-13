@@ -179,7 +179,11 @@ function writeJsonWithBackup(filePath, value) {
 }
 
 function codexPath() {
-  return findExecutable("codex") || "codex";
+  // macOS GUI applications often start with a minimal PATH, so the Codex CLI
+  // bundled with the desktop app is not discoverable through `which codex`.
+  // Prefer a shell-installed CLI, then use the desktop bundle explicitly.
+  const bundledCli = "/Applications/ChatGPT.app/Contents/Resources/codex";
+  return findExecutable("codex") || (fs.existsSync(bundledCli) ? bundledCli : "codex");
 }
 
 function runCodexMcp(args) {
