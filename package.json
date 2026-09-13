@@ -1,6 +1,6 @@
 {
   "name": "mcp-accounts",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "A local-first macOS profile manager for multiple accounts on the same MCP server.",
   "main": "electron/main.cjs",
   "author": "Brooke Roney",
@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "com.brookeroney.mcpaccounts",
-    "productName": "MCP Accounts",
+    "productName": "Multi-MCP",
     "asar": true,
     "directories": {
       "output": "release"
@@ -54,7 +54,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "MCP Accounts ${version}"
+      "title": "Multi-MCP ${version}"
     }
   }
 }

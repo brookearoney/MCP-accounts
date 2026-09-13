@@ -32,7 +32,7 @@ function npxPath() {
 
 function ensureNodeRuntime() {
   if (findExecutable("node") && findExecutable("npx")) return;
-  throw new Error("MCP Accounts needs Node.js 20 or newer to run MCP bridges. Install Node.js, then reopen the app.");
+  throw new Error("Multi-MCP needs Node.js 20 or newer to run MCP bridges. Install Node.js, then reopen the app.");
 }
 
 function mcpRemoteArgs(profile, clientMode = false) {
@@ -51,7 +51,7 @@ async function runBridge() {
   store = new ProfileStore(app.getPath("userData"));
   const profile = store.get(bridgeProfileId);
   if (!profile) {
-    process.stderr.write(`MCP Accounts: profile ${bridgeProfileId} was not found.\n`);
+    process.stderr.write(`Multi-MCP: profile ${bridgeProfileId} was not found.\n`);
     app.exit(2);
     return;
   }
@@ -60,7 +60,7 @@ async function runBridge() {
   try {
     ensureNodeRuntime();
   } catch (error) {
-    process.stderr.write(`MCP Accounts: ${error.message}\n`);
+    process.stderr.write(`Multi-MCP: ${error.message}\n`);
     app.exit(1);
     return;
   }
@@ -73,7 +73,7 @@ async function runBridge() {
   });
 
   child.on("error", (error) => {
-    process.stderr.write(`MCP Accounts bridge failed: ${redact(error.message)}\n`);
+    process.stderr.write(`Multi-MCP bridge failed: ${redact(error.message)}\n`);
     app.exit(1);
   });
   child.on("exit", (code, signal) => {
@@ -87,7 +87,7 @@ function createWindow() {
     height: 780,
     minWidth: 940,
     minHeight: 640,
-    title: "MCP Accounts",
+    title: "Multi-MCP",
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 18, y: 18 },
     backgroundColor: "#090b11",

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   buildBridgeCommand,
   buildEndpoint,
+  managedProfileId,
   mergeHostConfig,
   removeManagedProfileEntries,
   profileServerName,
@@ -92,6 +93,12 @@ test("removing a profile removes only its managed host entry", () => {
   assert.equal(result.config.theme, "dark");
   assert.ok(result.config.mcpServers.otherManaged);
   assert.ok(result.config.mcpServers.unrelated);
+});
+
+test("renamed Multi-MCP bridges and older MCP Accounts bridges are both recognized", () => {
+  const args = ["--mcp-profile", "profile-id"];
+  assert.equal(managedProfileId({ command: "/Applications/Multi-MCP.app/Contents/MacOS/Multi-MCP", args }), "profile-id");
+  assert.equal(managedProfileId({ command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts", args }), "profile-id");
 });
 
 test("removing a profile clears duplicate managed entries created before a rename", () => {

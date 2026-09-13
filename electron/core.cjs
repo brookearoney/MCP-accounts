@@ -68,9 +68,9 @@ function managedProfileId(entry) {
   const profileFlagIndex = args.indexOf("--mcp-profile");
   if (profileFlagIndex < 0) return "";
   const command = String(entry.command || "");
-  const isMcpAccountsBridge = /MCP Accounts/i.test(command)
-    || args.some((argument) => /mcp-accounts/i.test(argument));
-  return isMcpAccountsBridge ? args[profileFlagIndex + 1] || "" : "";
+  const isMultiMcpBridge = /(?:MCP Accounts|Multi-MCP)/i.test(command)
+    || args.some((argument) => /(?:mcp-accounts|multi-mcp)/i.test(argument));
+  return isMultiMcpBridge ? args[profileFlagIndex + 1] || "" : "";
 }
 
 function removeManagedProfileEntries(existing, profileId) {

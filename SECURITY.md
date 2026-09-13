@@ -1,6 +1,6 @@
 # Security model
 
-MCP Accounts is local-first. The MVP has no cloud service, account registration, analytics, or telemetry.
+Multi-MCP is local-first. The MVP has no cloud service, account registration, analytics, or telemetry.
 
 ## Credential handling
 
@@ -15,7 +15,7 @@ MCP Accounts is local-first. The MVP has no cloud service, account registration,
 
 Discovery is read-only and limited to known MCP client configuration paths. The scanner exposes server names, sanitized endpoints, local command basenames, project scope, and credential-field names to the renderer. It does not return environment values or header values. URL user information is removed and secret-like query parameters are redacted.
 
-MCP Accounts does not inspect another client's browser cookies, Keychain entries, OAuth token cache, or cloud account. A detected server can be imported as metadata, but it must be authenticated separately before MCP Accounts can manage it.
+Multi-MCP does not inspect another client's browser cookies, Keychain entries, OAuth token cache, or cloud account. A detected server can be imported as metadata, but it must be authenticated separately before Multi-MCP can manage it.
 
 ## OAuth isolation
 
@@ -27,7 +27,7 @@ Every profile receives a unique OAuth configuration directory. A token or dynami
 - A user with access to the logged-in macOS account and running process inspection tools may be able to inspect child-process environments.
 - Upstream MCP servers and connected AI hosts remain separate trust boundaries.
 - Provider-specific OAuth implementations may reject proxy clients or impose additional account and organization policies.
-- Deleting a profile does not revoke provider-side OAuth grants or remove manually exported third-party configuration. Matching MCP Accounts entries in Claude Desktop, Codex, Cursor, and Windsurf are removed with a backup.
+- Deleting a profile does not revoke provider-side OAuth grants or remove manually exported third-party configuration. Matching Multi-MCP entries in Claude Desktop, Codex, Cursor, and Windsurf are removed with a backup.
 - Client configuration formats can evolve; unsupported or malformed files are skipped and surfaced as a local warning.
 
 Do not connect production databases or high-value write credentials during initial testing. Use narrowly scoped or read-only profiles whenever the provider supports them.
