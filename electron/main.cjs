@@ -345,9 +345,19 @@ function registerIpc() {
     if (!profile) throw new Error("Connection not found");
     if (host.id === "codex") return installCodexHost(host, profile);
     const name = profileServerName(profile);
-    const merged = mergeHostConfig(readJson(host.filePath), name, bridgeEntry(profile));
+    // A label can change over the life of a profile, which changes its server
+    // name. Remove every prior bridge entry for this profile before adding the
+    // current one, so clients do not start duplicate connections on launch.
+    const existing = readJson(host.filePath);
+    const cleaned = removeManagedProfileEntries(existing, profile.id);
+    const merged = mergeHostConfig(cleaned.config, name, bridgeEntry(profile));
     const backupPath = writeJsonWithBackup(host.filePath, merged);
-    return { filePath: host.filePath, backupPath, serverName: name };
+    return {
+      filePath: host.filePath,
+      backupPath,
+      serverName: name,
+      removedServerNames: cleaned.removedServerNames,
+    };
   });
 
   ipcMain.handle("connections:start", (_event, id) => {

@@ -94,6 +94,27 @@ test("removing a profile removes only its managed host entry", () => {
   assert.ok(result.config.mcpServers.unrelated);
 });
 
+test("removing a profile clears duplicate managed entries created before a rename", () => {
+  const result = removeManagedProfileEntries(
+    {
+      mcpServers: {
+        oldName: {
+          command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts",
+          args: ["--mcp-profile", "profile-to-keep"],
+        },
+        currentName: {
+          command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts",
+          args: ["--mcp-profile", "profile-to-keep"],
+        },
+        unrelated: { command: "other-mcp", args: [] },
+      },
+    },
+    "profile-to-keep",
+  );
+  assert.deepEqual(result.removedServerNames, ["oldName", "currentName"]);
+  assert.deepEqual(Object.keys(result.config.mcpServers), ["unrelated"]);
+});
+
 test("bridge commands contain a profile id but no credential", () => {
   const entry = buildBridgeCommand({
     profile: { id: "1234-secret-profile" },
