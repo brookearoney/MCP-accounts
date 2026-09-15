@@ -95,8 +95,9 @@ test("removing a profile removes only its managed host entry", () => {
   assert.ok(result.config.mcpServers.unrelated);
 });
 
-test("renamed Multi-MCP bridges and older MCP Accounts bridges are both recognized", () => {
+test("MMCP and legacy bridges are all recognized", () => {
   const args = ["--mcp-profile", "profile-id"];
+  assert.equal(managedProfileId({ command: "/Applications/MMCP.app/Contents/MacOS/MMCP", args }), "profile-id");
   assert.equal(managedProfileId({ command: "/Applications/Multi-MCP.app/Contents/MacOS/Multi-MCP", args }), "profile-id");
   assert.equal(managedProfileId({ command: "/Applications/MCP Accounts.app/Contents/MacOS/MCP Accounts", args }), "profile-id");
 });

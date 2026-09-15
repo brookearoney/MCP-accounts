@@ -146,7 +146,7 @@ function managedProfileId(entry) {
   const command = String(entry.command || "");
   const args = stringArray(entry.args);
   const index = args.indexOf("--mcp-profile");
-  if (!/(?:MCP Accounts|Multi-MCP)(?:\.app)?/i.test(command) || index < 0) return "";
+  if (!/(?:MCP Accounts|Multi-MCP|MMCP)(?:\.app)?/i.test(command) || index < 0) return "";
   return args[index + 1] || "";
 }
 

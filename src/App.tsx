@@ -440,7 +440,7 @@ function App() {
   }
 
   async function removeProfile(profile: Profile) {
-    if (!window.confirm(`Remove “${profile.serviceName} · ${profile.label}”? Its local sign-in data and Multi-MCP entries installed in supported clients will be removed.`)) return;
+    if (!window.confirm(`Remove “${profile.serviceName} · ${profile.label}”? Its local sign-in data and MMCP entries installed in supported clients will be removed.`)) return;
     const result = await window.mcpAccounts.removeProfile(profile.id);
     if (!result.removed) {
       notify("Connection was already removed.");
@@ -494,7 +494,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><span /><span /><span /></div>
-          <div><strong>Multi-MCP</strong><small>Local profile manager</small></div>
+          <div><strong>MMCP</strong><small>Local profile manager</small></div>
         </div>
         <nav>
           {navItems.map((item) => (
@@ -529,7 +529,7 @@ function App() {
             {importableDetections.length > 0 && (
               <button className="discovery-banner" onClick={() => setView("detected")}>
                 <span className="discovery-pulse">◎</span>
-                <div><strong>{importableDetections.length} existing remote connection{importableDetections.length === 1 ? "" : "s"} can be imported</strong><small>Review what Multi-MCP found in local client configurations.</small></div>
+                <div><strong>{importableDetections.length} existing remote connection{importableDetections.length === 1 ? "" : "s"} can be imported</strong><small>Review what MMCP found in local client configurations.</small></div>
                 <b>Review →</b>
               </button>
             )}
@@ -617,7 +617,7 @@ function App() {
               <h2>Connect, then install it in your AI client.</h2>
               <div className="finish-steps">
                 <div><span>1</span><strong>Run Connect</strong><p>Complete the browser sign-in or test your token. OAuth data stays separate for this profile.</p></div>
-                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Codex, Cursor, or Windsurf. Multi-MCP makes a backup before changing a client file.</p></div>
+                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Codex, Cursor, or Windsurf. MMCP makes a backup before changing a client file.</p></div>
                 <div><span>3</span><strong>Restart the client</strong><p>Your AI client will see a distinct server name for this specific account profile.</p></div>
               </div>
             </section>
@@ -715,7 +715,7 @@ function App() {
                 </div>
               ))}
             </div>
-            <div className="notice client-notice">Multi-MCP merges only its named server entry and creates a timestamped backup before changing an existing client configuration.</div>
+            <div className="notice client-notice">MMCP merges only its named server entry and creates a timestamped backup before changing an existing client configuration.</div>
           </>
         )}
 
@@ -724,11 +724,11 @@ function App() {
             <div className="about-mark"><span /><span /><span /></div>
             <p className="eyebrow">MVP 0.4.0</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
-            <p className="about-lede">Multi-MCP creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
+            <p className="about-lede">MMCP creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">
               <div><strong>Secure by default</strong><p>Secrets are encrypted through Electron’s macOS secure storage integration and never copied into client JSON.</p></div>
               <div><strong>Visible routing</strong><p>Every profile gets a distinct name so an agent can’t silently confuse work, personal, and client accounts.</p></div>
-              <div><strong>Local first</strong><p>No Multi-MCP cloud, telemetry, or account registration is required for this MVP.</p></div>
+              <div><strong>Local first</strong><p>No MMCP cloud, telemetry, or account registration is required for this MVP.</p></div>
             </div>
             <button className="text-button docs-link" onClick={() => window.mcpAccounts.openExternal("https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization")}>Read the MCP authorization specification ↗</button>
           </section>

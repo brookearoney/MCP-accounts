@@ -68,8 +68,8 @@ function managedProfileId(entry) {
   const profileFlagIndex = args.indexOf("--mcp-profile");
   if (profileFlagIndex < 0) return "";
   const command = String(entry.command || "");
-  const isMultiMcpBridge = /(?:MCP Accounts|Multi-MCP)/i.test(command)
-    || args.some((argument) => /(?:mcp-accounts|multi-mcp)/i.test(argument));
+  const isMultiMcpBridge = /(?:MCP Accounts|Multi-MCP|MMCP)/i.test(command)
+    || args.some((argument) => /(?:mcp-accounts|multi-mcp|mmcp)/i.test(argument));
   return isMultiMcpBridge ? args[profileFlagIndex + 1] || "" : "";
 }
 

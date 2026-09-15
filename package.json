@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "com.brookeroney.mcpaccounts",
-    "productName": "Multi-MCP",
+    "productName": "MMCP",
     "asar": true,
     "directories": {
       "output": "release"
@@ -54,7 +54,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "Multi-MCP ${version}"
+      "title": "MMCP ${version}"
     }
   }
 }
