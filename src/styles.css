@@ -44,15 +44,10 @@ button { color: inherit; }
   -webkit-app-region: drag;
 }
 
-.brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 24px; }
-.brand > div:last-child { display: flex; flex-direction: column; line-height: 1.25; }
-.brand strong { font-size: 14px; letter-spacing: -0.01em; }
-.brand small { color: var(--quiet); font-size: 10.5px; margin-top: 2px; }
-.brand-mark, .about-mark { position: relative; display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: linear-gradient(145deg, #a598ff, #5546d6); box-shadow: 0 8px 22px rgba(91, 72, 219, 0.3); }
-.brand-mark span, .about-mark span { position: absolute; width: 4px; border-radius: 9px; background: white; transform: rotate(30deg); }
-.brand-mark span:nth-child(1), .about-mark span:nth-child(1) { height: 14px; left: 8px; }
-.brand-mark span:nth-child(2), .about-mark span:nth-child(2) { height: 20px; }
-.brand-mark span:nth-child(3), .about-mark span:nth-child(3) { height: 14px; right: 8px; }
+.brand { padding: 0 10px 24px; }
+.brand-lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.brand-lockup img { display: block; width: 74px; height: auto; }
+.brand-lockup small { color: var(--quiet); font-size: 10.5px; }
 
 .sidebar nav { display: flex; flex-direction: column; gap: 3px; -webkit-app-region: no-drag; }
 .sidebar nav button { display: flex; align-items: center; gap: 10px; height: 38px; border: 0; border-radius: 9px; padding: 0 10px; color: #8d95a8; background: transparent; cursor: pointer; text-align: left; font-size: 13px; transition: 140ms ease; }
@@ -224,7 +219,7 @@ button { color: inherit; }
 .code-wrap pre { max-height: 190px; overflow: auto; margin: 0; padding: 12px; color: #969fb4; font: 10px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 
 .about-page { max-width: 780px; padding-top: 18px; }
-.about-mark { width: 52px; height: 52px; margin-bottom: 27px; border-radius: 15px; transform: scale(1.12); transform-origin: left center; }
+.about-wordmark { display: block; width: min(308px, 100%); height: auto; margin: 2px 0 28px; }
 .about-page h1 { margin: 9px 0 20px; font-size: 38px; line-height: 1.13; letter-spacing: -.045em; }
 .about-lede { max-width: 670px; color: #8c94a7; font-size: 13px; line-height: 1.75; }
 .about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; margin-top: 28px; }

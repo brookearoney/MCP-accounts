@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import mmcpLogo from "../MMCP.svg";
+import fullWordmark from "../Word Mark (full).svg";
 import type {
   AuthType,
   BootstrapData,
@@ -493,8 +495,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark"><span /><span /><span /></div>
-          <div><strong>MMCP</strong><small>Local profile manager</small></div>
+          <div className="brand-lockup"><img src={mmcpLogo} alt="MMCP" /><small>Local profile manager</small></div>
         </div>
         <nav>
           {navItems.map((item) => (
@@ -721,8 +722,8 @@ function App() {
 
         {view === "about" && (
           <section className="about-page">
-            <div className="about-mark"><span /><span /><span /></div>
-            <p className="eyebrow">MVP 0.4.0</p>
+            <img className="about-wordmark" src={fullWordmark} alt="MULTI MCP" />
+            <p className="eyebrow">Local MCP profile manager</p>
             <h1>Accounts belong to people,<br />not server URLs.</h1>
             <p className="about-lede">MMCP creates a separate authentication boundary for every service profile on this Mac. OAuth state stays isolated. Static credentials are encrypted locally. Generated client configuration contains only a profile identifier.</p>
             <div className="about-grid">
