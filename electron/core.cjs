@@ -102,8 +102,12 @@ function redact(value) {
 }
 
 function publicProfile(profile) {
-  const { encryptedSecret, ...safe } = profile;
-  return { ...safe, hasSecret: Boolean(encryptedSecret) };
+  const { encryptedSecret, encryptedOauthClientSecret, ...safe } = profile;
+  return {
+    ...safe,
+    hasSecret: Boolean(encryptedSecret),
+    hasOAuthClientSecret: Boolean(encryptedOauthClientSecret),
+  };
 }
 
 module.exports = {

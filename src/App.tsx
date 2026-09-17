@@ -93,12 +93,32 @@ function AddConnection({
     authType: service.id === "higgsfield" ? "oauth" : (profile?.authType || initialInput?.authType || service.authModes[0]),
     headerName: profile?.headerName || initialInput?.headerName || "Authorization",
     headerPrefix: profile?.headerPrefix ?? initialInput?.headerPrefix ?? "Bearer",
+    oauthClientId: profile?.oauthClientId || initialInput?.oauthClientId || "",
+    oauthClientSecret: "",
     readOnly: profile?.readOnly ?? initialInput?.readOnly ?? Boolean(service.supportsReadOnly),
     features: profile?.features || initialInput?.features || "",
   }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const needsSecret = input.authType !== "oauth";
+
+  if (service.requiresUcpProfile) {
+    return (
+      <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+        <section className="modal">
+          <header className="modal-header">
+            <div className="modal-title-wrap"><Icon service={service} size="large" /><div><p className="eyebrow">Guided integration</p><h2>Shopify</h2></div></div>
+            <button type="button" className="icon-button" onClick={onClose} aria-label="Close">×</button>
+          </header>
+          <div className="notice warning">
+            Shopify’s current MCP surface uses UCP: its catalog, cart, checkout, and order calls need an agent profile and capability negotiation. MMCP does not yet inject that per-tool metadata, so it would be misleading to create a standard profile that appears connected but fails on use.
+          </div>
+          <p className="modal-copy">Use Shopify’s AI Toolkit with Codex, Claude Code, Cursor, or VS Code today. MMCP will add this as a fully managed connection once it can safely manage UCP agent profiles.</p>
+          <footer className="modal-footer"><span className="footer-spacer" /><button type="button" className="button ghost" onClick={onClose}>Close</button><button type="button" className="button primary" onClick={() => service.oauthSetupUrl && window.mcpAccounts.openExternal(service.oauthSetupUrl)}>Open Shopify guide ↗</button></footer>
+        </section>
+      </div>
+    );
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -143,6 +163,13 @@ function AddConnection({
             <strong>Official OAuth connection.</strong> MMCP connects directly to Higgsfield MCP. No API key is needed; the browser sign-in uses this profile’s isolated OAuth storage. Higgsfield charges standard credits for MCP generations.
           </div>
         )}
+        {service.requiresOAuthClient && (
+          <div className="notice">
+            <strong>Workspace OAuth app required.</strong> {service.name} requires a pre-registered OAuth client for desktop sign-in. MMCP stores its client secret with macOS encryption and passes it to the local bridge only when needed.
+            {service.oauthCallbackPort && <> Add <code>http://localhost:{service.oauthCallbackPort}/oauth/callback</code> as the OAuth app redirect URL.</>}
+            {service.oauthSetupUrl && <> <button type="button" className="text-button inline-link" onClick={() => window.mcpAccounts.openExternal(service.oauthSetupUrl!)}>Open setup guide ↗</button></>}
+          </div>
+        )}
 
         <div className="form-grid">
           <label className="field full">
@@ -164,6 +191,30 @@ function AddConnection({
               placeholder="email@example.com"
             />
           </label>
+
+          {service.requiresOAuthClient && (
+            <>
+              <label className="field">
+                <span>OAuth client ID</span>
+                <input
+                  required
+                  value={input.oauthClientId}
+                  onChange={(event) => setInput({ ...input, oauthClientId: event.target.value })}
+                  placeholder={`From your ${service.name} OAuth app`}
+                />
+              </label>
+              <label className="field">
+                <span>OAuth client secret</span>
+                <input
+                  required={!profile?.hasOAuthClientSecret}
+                  type="password"
+                  value={input.oauthClientSecret}
+                  onChange={(event) => setInput({ ...input, oauthClientSecret: event.target.value })}
+                  placeholder={profile?.hasOAuthClientSecret ? "Stored — enter to replace" : "Stored with macOS encryption"}
+                />
+              </label>
+            </>
+          )}
 
           <label className="field">
             <span>{service.scopeLabel}</span>
@@ -515,7 +566,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.4.0</span>
+          <span className="version">MVP 0.4.4</span>
         </div>
       </aside>
 
@@ -701,7 +752,7 @@ function App() {
                   <div className="tile-top"><Icon service={service} size="large" /><span className={`maturity maturity-${service.maturity}`}>{maturityNames[service.maturity]}</span></div>
                   <strong>{service.name}</strong>
                   <p>{service.description}</p>
-                  <div className="tile-foot"><span>{service.authModes.map((mode) => authNames[mode]).join(" · ")}</span><b>＋</b></div>
+                  <div className="tile-foot"><span>{service.requiresUcpProfile ? "Guided UCP setup" : service.authModes.map((mode) => authNames[mode]).join(" · ")}</span><b>{service.requiresUcpProfile ? "↗" : "＋"}</b></div>
                 </button>
               ))}
             </div>

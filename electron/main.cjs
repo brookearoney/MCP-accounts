@@ -35,10 +35,23 @@ function ensureNodeRuntime() {
   throw new Error("MMCP needs Node.js 20 or newer to run MCP bridges. Install Node.js, then reopen the app.");
 }
 
-function mcpRemoteArgs(profile, clientMode = false) {
+function oauthClientInfoPath(profile) {
+  if (!profile.oauthClientId || !profile.encryptedOauthClientSecret) return "";
+  const clientSecret = store.decryptOauthClientSecret(profile);
+  const directory = store.authDirectory(profile.id);
+  const filePath = path.join(directory, "oauth-client-info.json");
+  fs.writeFileSync(filePath, `${JSON.stringify({ client_id: profile.oauthClientId, client_secret: clientSecret })}\n`, { mode: 0o600 });
+  fs.chmodSync(filePath, 0o600);
+  return filePath;
+}
+
+function mcpRemoteArgs(profile, clientMode = false, clientInfoPath = "") {
   const args = clientMode
     ? ["-y", "-p", "mcp-remote@latest", "mcp-remote-client", profile.endpoint]
     : ["-y", "mcp-remote@latest", profile.endpoint];
+
+  if (profile.oauthCallbackPort) args.push(String(profile.oauthCallbackPort));
+  if (clientInfoPath) args.push("--static-oauth-client-info", `@${clientInfoPath}`);
 
   if (profile.encryptedSecret) {
     args.push("--header", `${profile.headerName}:${profile.headerPrefix ? `${profile.headerPrefix} ` : ""}\${MCP_ACCOUNTS_TOKEN}`);
@@ -57,6 +70,7 @@ async function runBridge() {
   }
 
   const secret = store.decryptSecret(profile);
+  const clientInfoPath = oauthClientInfoPath(profile);
   try {
     ensureNodeRuntime();
   } catch (error) {
@@ -64,7 +78,7 @@ async function runBridge() {
     app.exit(1);
     return;
   }
-  const child = spawn(npxPath(), mcpRemoteArgs(profile), {
+  const child = spawn(npxPath(), mcpRemoteArgs(profile, false, clientInfoPath), {
     env: bridgeEnvironment({
       MCP_ACCOUNTS_TOKEN: secret,
       MCP_REMOTE_CONFIG_DIR: store.authDirectory(profile.id),
@@ -374,7 +388,8 @@ function registerIpc() {
 
     store.setStatus(id, "connecting");
     const secret = store.decryptSecret(profile);
-    const child = spawn(npxPath(), mcpRemoteArgs(profile, true), {
+    const clientInfoPath = oauthClientInfoPath(profile);
+    const child = spawn(npxPath(), mcpRemoteArgs(profile, true, clientInfoPath), {
       env: bridgeEnvironment({
         MCP_ACCOUNTS_TOKEN: secret,
         MCP_REMOTE_CONFIG_DIR: store.authDirectory(id),

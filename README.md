@@ -6,7 +6,7 @@ The MVP includes:
 
 - A native-feeling Electron interface for connection profiles.
 - A left-panel “How to connect” guide that walks through imported and new account setup.
-- Presets for Supabase, GitHub, Vercel, Higgsfield, Framer, Linear, Sentry, Stripe, Cloudflare, Atlassian, and custom servers.
+- Presets for Supabase, GitHub, Vercel, Higgsfield, PostHog, Neon, Notion, HubSpot, Slack, Shopify guidance, Framer, Linear, Sentry, Stripe, Cloudflare, Atlassian, and custom servers.
 - Profile-specific OAuth storage via `MCP_REMOTE_CONFIG_DIR`.
 - Encrypted local storage for PATs and API tokens through Electron `safeStorage` on macOS.
 - A bridge mode that keeps credentials out of generated MCP client configuration.
@@ -72,6 +72,9 @@ Static credentials are supplied to the bridge through the child process environm
 - Third-party clients commonly keep OAuth account identity and tokens in private stores. MMCP therefore cannot safely infer an email address or reuse that authorization; imported metadata must be authenticated as a new isolated profile.
 - It uses `npx mcp-remote@latest`, so Node/npm and network access are required on first bridge launch.
 - Higgsfield uses its official OAuth MCP endpoint at `https://mcp.higgsfield.ai/mcp`; no API key is required. MCP generations consume Higgsfield credits.
+- PostHog, Neon, and Notion use their official hosted OAuth MCP endpoints with a separate local OAuth directory for each profile.
+- HubSpot and Slack require a user-created provider OAuth app. MMCP encrypts the client secret locally and gives it only to `mcp-remote` through a mode-`0600` local client-info file when a bridge runs. HubSpot uses the fixed local callback `http://localhost:7260/oauth/callback`; Slack uses `http://localhost:48125/oauth/callback`.
+- Shopify is included as guided UCP integration rather than a standard profile. Shopify’s current catalog/cart/checkout MCP requires an agent profile and per-tool capability metadata, which MMCP does not yet inject. Use Shopify’s AI Toolkit until MMCP adds native UCP-profile support.
 - Framer remains an adapter slot until a compatible MCP endpoint is supplied.
 - Vercel only accepts reviewed MCP clients, so its behavior through the bridge must be validated.
 - GitHub PAT authentication is the most predictable personal-MVP path. OAuth through the remote GitHub server may require a registered GitHub App or OAuth App.

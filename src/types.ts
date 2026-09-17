@@ -13,6 +13,10 @@ export interface ServiceDefinition {
   scopeLabel: string;
   supportsReadOnly?: boolean;
   endpointLocked?: boolean;
+  requiresOAuthClient?: boolean;
+  oauthCallbackPort?: number;
+  oauthSetupUrl?: string;
+  requiresUcpProfile?: boolean;
 }
 
 export interface Profile {
@@ -24,6 +28,7 @@ export interface Profile {
   scope: string;
   endpoint: string;
   authType: AuthType;
+  oauthCallbackPort?: number;
   headerName: string;
   headerPrefix: string;
   readOnly: boolean;
@@ -31,6 +36,8 @@ export interface Profile {
   status: "ready" | "connecting" | "connected" | "error";
   lastError: string;
   hasSecret: boolean;
+  oauthClientId?: string;
+  hasOAuthClientSecret?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -103,6 +110,8 @@ export interface ProfileInput {
   headerPrefix: string;
   readOnly: boolean;
   features: string;
+  oauthClientId?: string;
+  oauthClientSecret?: string;
 }
 
 export interface ConnectionEvent {

@@ -23,6 +23,9 @@
 - [ ] Live smoke test with two GitHub accounts
 - [ ] Verify Vercel client approval behavior
 - [x] Official Higgsfield MCP OAuth integration
+- [x] Official PostHog, Neon, and Notion OAuth presets
+- [x] HubSpot and Slack OAuth-app presets with encrypted per-profile client credentials
+- [x] Shopify UCP integration guidance
 - [ ] Build first-party Framer Server API adapter
 
 ## Public beta
@@ -31,6 +34,7 @@
 - Add VS Code and Raycast host adapters.
 - Add host-entry removal and rename reconciliation.
 - Add OAuth registration recovery when cached client metadata becomes stale.
+- Add native UCP agent-profile management for Shopify storefront, cart, checkout, and order MCP servers.
 - Add explicit permission and scope review before installation.
 - Add profile colors and a mandatory destructive-tool confirmation policy.
 - Add a signed, hosted automatic-update channel after notarization and release hosting are configured.

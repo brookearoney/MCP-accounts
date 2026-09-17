@@ -59,12 +59,22 @@ class ProfileStore {
     const id = existing?.id || crypto.randomUUID();
     const authType = service.id === "higgsfield" ? "oauth" : (input.authType || service.authModes[0]);
     const secret = typeof input.secret === "string" ? input.secret.trim() : "";
+    const oauthClientId = String(input.oauthClientId || existing?.oauthClientId || "").trim();
+    const oauthClientSecret = typeof input.oauthClientSecret === "string" ? input.oauthClientSecret.trim() : "";
+    if (service.requiresOAuthClient && (!oauthClientId || (!oauthClientSecret && !existing?.encryptedOauthClientSecret))) {
+      throw new Error(`${service.name} needs an OAuth client ID and client secret before it can connect.`);
+    }
     // The official Higgsfield MCP authenticates with OAuth. Discard a legacy
     // API key when a profile is saved so it cannot be forwarded by the bridge.
     let encryptedSecret = service.id === "higgsfield" ? undefined : existing?.encryptedSecret;
     if (secret && service.id !== "higgsfield") {
       if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");
       encryptedSecret = safeStorage.encryptString(secret).toString("base64");
+    }
+    let encryptedOauthClientSecret = existing?.encryptedOauthClientSecret;
+    if (oauthClientSecret) {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");
+      encryptedOauthClientSecret = safeStorage.encryptString(oauthClientSecret).toString("base64");
     }
 
     const profile = {
@@ -76,13 +86,16 @@ class ProfileStore {
       scope: String(input.scope || "").trim(),
       endpoint,
       authType,
+      oauthCallbackPort: service.oauthCallbackPort,
       headerName: String(input.headerName || "Authorization").trim(),
       headerPrefix: String(input.headerPrefix ?? "Bearer").trim(),
       readOnly: Boolean(input.readOnly),
       features: String(input.features || "").trim(),
+      oauthClientId,
       status: service.id === "higgsfield" && existing?.authType !== "oauth" ? "ready" : (existing?.status || "ready"),
       lastError: "",
       encryptedSecret,
+      encryptedOauthClientSecret,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -133,6 +146,12 @@ class ProfileStore {
     if (!profile?.encryptedSecret) return "";
     if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");
     return safeStorage.decryptString(Buffer.from(profile.encryptedSecret, "base64"));
+  }
+
+  decryptOauthClientSecret(profile) {
+    if (!profile?.encryptedOauthClientSecret) return "";
+    if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");
+    return safeStorage.decryptString(Buffer.from(profile.encryptedOauthClientSecret, "base64"));
   }
 
   authDirectory(id) {

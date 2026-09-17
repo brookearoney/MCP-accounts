@@ -42,6 +42,18 @@ async function main() {
   assert.equal(higgsfield.hasSecret, false);
   assert.equal(store.decryptSecret(store.get(higgsfield.id)), "");
 
+  const hubspot = store.upsert({
+    serviceId: "hubspot",
+    label: "CRM",
+    authType: "oauth",
+    oauthClientId: "hubspot-client-id",
+    oauthClientSecret: "hubspot-client-secret",
+  });
+  assert.equal(hubspot.oauthClientId, "hubspot-client-id");
+  assert.equal(hubspot.hasOAuthClientSecret, true);
+  assert.equal(store.decryptOauthClientSecret(store.get(hubspot.id)), "hubspot-client-secret");
+  assert.equal(fs.readFileSync(path.join(temporaryRoot, "profiles.json"), "utf8").includes("hubspot-client-secret"), false);
+
   const authDirectory = store.authDirectory(profile.id);
   fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
   const reset = store.resetAuth(profile.id);
@@ -51,6 +63,7 @@ async function main() {
   fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
   assert.equal(store.remove(profile.id), true);
   assert.equal(store.remove(higgsfield.id), true);
+  assert.equal(store.remove(hubspot.id), true);
   assert.equal(fs.existsSync(authDirectory), false);
   assert.equal(store.list().length, 0);
 
