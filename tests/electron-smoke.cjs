@@ -28,6 +28,20 @@ async function main() {
   assert.equal(store.decryptSecret(store.get(profile.id)), rawSecret);
   assert.equal(fs.readFileSync(path.join(temporaryRoot, "profiles.json"), "utf8").includes(rawSecret), false);
 
+  const higgsfield = store.upsert({
+    serviceId: "higgsfield",
+    label: "Higgsfield OAuth",
+    endpoint: "https://untrusted.example/mcp",
+    authType: "apiKey",
+    secret: "legacy-key-that-must-not-be-retained",
+    headerName: "Authorization",
+    headerPrefix: "Bearer",
+  });
+  assert.equal(higgsfield.authType, "oauth");
+  assert.equal(higgsfield.endpoint, "https://mcp.higgsfield.ai/mcp");
+  assert.equal(higgsfield.hasSecret, false);
+  assert.equal(store.decryptSecret(store.get(higgsfield.id)), "");
+
   const authDirectory = store.authDirectory(profile.id);
   fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
   const reset = store.resetAuth(profile.id);
@@ -36,6 +50,7 @@ async function main() {
   fs.mkdirSync(authDirectory, { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(authDirectory, "test-token.json"), "placeholder", { mode: 0o600 });
   assert.equal(store.remove(profile.id), true);
+  assert.equal(store.remove(higgsfield.id), true);
   assert.equal(fs.existsSync(authDirectory), false);
   assert.equal(store.list().length, 0);
 

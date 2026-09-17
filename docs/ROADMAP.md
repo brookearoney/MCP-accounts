@@ -22,7 +22,7 @@
 - [ ] Live smoke test with two Supabase accounts
 - [ ] Live smoke test with two GitHub accounts
 - [ ] Verify Vercel client approval behavior
-- [ ] Confirm supported Higgsfield API or MCP route
+- [x] Official Higgsfield MCP OAuth integration
 - [ ] Build first-party Framer Server API adapter
 
 ## Public beta
@@ -44,6 +44,6 @@
 ## Provider adapters
 
 - Framer Server API adapter with project-bound API keys.
-- Higgsfield adapter, conditional on an official supported API surface.
+- Higgsfield model-specific API adapter for products that need server-side REST generation rather than MCP.
 - Local GitHub MCP Server launcher for users who prefer GitHub's official binary or Docker image.
 - Local Supabase CLI transport for development environments.

@@ -12,6 +12,7 @@ export interface ServiceDefinition {
   description: string;
   scopeLabel: string;
   supportsReadOnly?: boolean;
+  endpointLocked?: boolean;
 }
 
 export interface Profile {

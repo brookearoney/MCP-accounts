@@ -10,6 +10,7 @@ function slugify(value) {
 }
 
 function buildEndpoint(service, input) {
+  if (service.id === "higgsfield") return service.endpoint;
   const raw = String(input.endpoint || service.endpoint || "").trim();
   if (!raw) return "";
 

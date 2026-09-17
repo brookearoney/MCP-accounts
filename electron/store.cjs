@@ -57,9 +57,12 @@ class ProfileStore {
     const existing = input.id ? this.get(input.id) : undefined;
     const now = new Date().toISOString();
     const id = existing?.id || crypto.randomUUID();
+    const authType = service.id === "higgsfield" ? "oauth" : (input.authType || service.authModes[0]);
     const secret = typeof input.secret === "string" ? input.secret.trim() : "";
-    let encryptedSecret = existing?.encryptedSecret;
-    if (secret) {
+    // The official Higgsfield MCP authenticates with OAuth. Discard a legacy
+    // API key when a profile is saved so it cannot be forwarded by the bridge.
+    let encryptedSecret = service.id === "higgsfield" ? undefined : existing?.encryptedSecret;
+    if (secret && service.id !== "higgsfield") {
       if (!safeStorage.isEncryptionAvailable()) throw new Error("macOS secure storage is unavailable");
       encryptedSecret = safeStorage.encryptString(secret).toString("base64");
     }
@@ -72,12 +75,12 @@ class ProfileStore {
       accountHint: String(input.accountHint || "").trim(),
       scope: String(input.scope || "").trim(),
       endpoint,
-      authType: input.authType || service.authModes[0],
+      authType,
       headerName: String(input.headerName || "Authorization").trim(),
       headerPrefix: String(input.headerPrefix ?? "Bearer").trim(),
       readOnly: Boolean(input.readOnly),
       features: String(input.features || "").trim(),
-      status: existing?.status || "ready",
+      status: service.id === "higgsfield" && existing?.authType !== "oauth" ? "ready" : (existing?.status || "ready"),
       lastError: "",
       encryptedSecret,
       createdAt: existing?.createdAt || now,

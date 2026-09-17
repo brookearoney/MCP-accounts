@@ -28,6 +28,14 @@ test("Supabase endpoint is project-scoped and read-only", () => {
   assert.equal(url.searchParams.get("features"), "database,docs");
 });
 
+test("Higgsfield always resolves to its official OAuth MCP endpoint", () => {
+  const endpoint = buildEndpoint(
+    { id: "higgsfield", endpoint: "https://mcp.higgsfield.ai/mcp" },
+    { endpoint: "https://untrusted.example/mcp" },
+  );
+  assert.equal(endpoint, "https://mcp.higgsfield.ai/mcp");
+});
+
 test("Supabase access can be changed from read-only to read/write", () => {
   const endpoint = buildEndpoint(
     { id: "supabase", endpoint: "https://mcp.supabase.com/mcp" },

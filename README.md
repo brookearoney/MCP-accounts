@@ -71,7 +71,8 @@ Static credentials are supplied to the bridge through the child process environm
 - Discovery reads known local configuration files. It can identify a provider, endpoint, project scope, and whether credential fields are configured, but it does not copy credential values.
 - Third-party clients commonly keep OAuth account identity and tokens in private stores. MMCP therefore cannot safely infer an email address or reuse that authorization; imported metadata must be authenticated as a new isolated profile.
 - It uses `npx mcp-remote@latest`, so Node/npm and network access are required on first bridge launch.
-- Framer and Higgsfield are adapter slots until a compatible MCP endpoint is supplied.
+- Higgsfield uses its official OAuth MCP endpoint at `https://mcp.higgsfield.ai/mcp`; no API key is required. MCP generations consume Higgsfield credits.
+- Framer remains an adapter slot until a compatible MCP endpoint is supplied.
 - Vercel only accepts reviewed MCP clients, so its behavior through the bridge must be validated.
 - GitHub PAT authentication is the most predictable personal-MVP path. OAuth through the remote GitHub server may require a registered GitHub App or OAuth App.
 - Deleting a profile removes its local encrypted credential and OAuth directory, plus matching MMCP entries in Claude Desktop, Codex, Cursor, and Windsurf (with backups). It does not remove manually exported configuration or revoke provider-side grants.

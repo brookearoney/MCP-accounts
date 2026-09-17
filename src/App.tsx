@@ -90,7 +90,7 @@ function AddConnection({
     accountHint: profile?.accountHint || initialInput?.accountHint || "",
     scope: profile?.scope || initialInput?.scope || "",
     endpoint: profile?.endpoint || initialInput?.endpoint || service.endpoint,
-    authType: profile?.authType || initialInput?.authType || service.authModes[0],
+    authType: service.id === "higgsfield" ? "oauth" : (profile?.authType || initialInput?.authType || service.authModes[0]),
     headerName: profile?.headerName || initialInput?.headerName || "Authorization",
     headerPrefix: profile?.headerPrefix ?? initialInput?.headerPrefix ?? "Bearer",
     readOnly: profile?.readOnly ?? initialInput?.readOnly ?? Boolean(service.supportsReadOnly),
@@ -138,6 +138,11 @@ function AddConnection({
             This service needs a compatible custom Streamable HTTP MCP endpoint. The first-party API adapter is on the roadmap.
           </div>
         )}
+        {service.id === "higgsfield" && (
+          <div className="notice">
+            <strong>Official OAuth connection.</strong> MMCP connects directly to Higgsfield MCP. No API key is needed; the browser sign-in uses this profile’s isolated OAuth storage. Higgsfield charges standard credits for MCP generations.
+          </div>
+        )}
 
         <div className="form-grid">
           <label className="field full">
@@ -173,6 +178,7 @@ function AddConnection({
             <span>MCP endpoint</span>
             <input
               required
+              readOnly={service.endpointLocked}
               value={input.endpoint}
               onChange={(event) => setInput({ ...input, endpoint: event.target.value })}
               placeholder="https://service.example.com/mcp"
@@ -183,6 +189,7 @@ function AddConnection({
             <span>Authentication</span>
             <select
               value={input.authType}
+              disabled={service.id === "higgsfield"}
               onChange={(event) => setInput({ ...input, authType: event.target.value as AuthType })}
             >
               {service.authModes.map((mode) => <option key={mode} value={mode}>{authNames[mode]}</option>)}
@@ -252,7 +259,7 @@ function AddConnection({
         {error && <div className="form-error">{error}</div>}
 
         <footer className="modal-footer">
-          {profile?.authType === "oauth" && onResetAuth && <button type="button" className="button ghost" onClick={onResetAuth}>Reset sign-in</button>}
+          {input.authType === "oauth" && profile && onResetAuth && <button type="button" className="button ghost" onClick={onResetAuth}>Reset sign-in</button>}
           {profile && onRemove && <button type="button" className="button danger-button" onClick={onRemove}>Remove</button>}
           <span className="footer-spacer" />
           <button type="button" className="button ghost" onClick={onClose}>Cancel</button>
