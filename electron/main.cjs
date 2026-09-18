@@ -22,6 +22,7 @@ const isBridgeMode = Boolean(bridgeProfileId);
 
 let mainWindow;
 let store;
+let isQuitting = false;
 const activeChecks = new Map();
 const cancelledChecks = new Set();
 const cancellationReported = new Set();
@@ -61,6 +62,10 @@ function mcpRemoteArgs(profile, clientMode = false, clientInfoPath = "") {
 
 async function runBridge() {
   await app.whenReady();
+  // A bridge is a headless stdio process launched by an MCP host, not a second
+  // MMCP window. Hiding its Dock tile keeps one active connection from looking
+  // like a separate open app on macOS.
+  if (process.platform === "darwin") app.dock?.hide();
   store = new ProfileStore(app.getPath("userData"));
   const profile = store.get(bridgeProfileId);
   if (!profile) {
@@ -120,6 +125,16 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
+
+  mainWindow.on("close", (event) => {
+    // On macOS, the red window button should keep MMCP available in the
+    // background. Cmd+Q still performs a genuine quit and retains all saved
+    // profiles and OAuth files on disk for the next launch.
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 
   if (process.env.MCP_ACCOUNTS_SCREENSHOT_PATH) {
     mainWindow.webContents.once("did-finish-load", () => {
@@ -463,6 +478,7 @@ if (isBridgeMode) {
     app.on("second-instance", () => {
       if (mainWindow) {
         if (mainWindow.isMinimized()) mainWindow.restore();
+        if (!mainWindow.isVisible()) mainWindow.show();
         mainWindow.focus();
       }
     });
@@ -472,7 +488,11 @@ if (isBridgeMode) {
       registerIpc();
       createWindow();
       app.on("activate", () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+        else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
       });
     });
 
@@ -481,6 +501,7 @@ if (isBridgeMode) {
     });
 
     app.on("before-quit", () => {
+      isQuitting = true;
       for (const [id, child] of activeChecks) {
         cancelledChecks.add(id);
         stopChildProcess(child);

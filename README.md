@@ -65,6 +65,8 @@ When an MCP host starts that command, MMCP runs without its UI, opens the profil
 
 Static credentials are supplied to the bridge through the child process environment and referenced symbolically by the MCP proxy argument. They are not written into host configuration.
 
+On macOS, closing the MMCP window hides it instead of quitting it; click its Dock icon or relaunch MMCP to show the window again. Individual MCP bridges run without Dock tiles. Saved profile metadata and isolated OAuth storage remain on disk when MMCP is quit, although an MCP host can still end its own bridge process when it exits.
+
 ## Current boundaries
 
 - The MVP targets remote Streamable HTTP MCP endpoints.
