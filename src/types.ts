@@ -118,6 +118,9 @@ export interface ConnectionEvent {
   profileId: string;
   kind: "output" | "complete" | "error";
   message: string;
+  connectionLabel?: string;
+  installedHosts?: string[];
+  installationWarnings?: string[];
 }
 
 export interface MCPAccountsApi {
@@ -126,6 +129,7 @@ export interface MCPAccountsApi {
   saveProfile: (input: ProfileInput) => Promise<Profile>;
   removeProfile: (id: string) => Promise<{ removed: boolean; installationsRemoved: number; warnings: string[] }>;
   resetProfileAuth: (id: string) => Promise<Profile>;
+  getRoutingInstructions: () => Promise<string>;
   getConfig: (id: string) => Promise<{ name: string; config: object }>;
   exportConfig: (id: string) => Promise<{ canceled: boolean; filePath?: string }>;
   installHost: (hostId: string, profileId: string) => Promise<{ filePath: string; backupPath: string; serverName: string }>;

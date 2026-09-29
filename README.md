@@ -10,7 +10,8 @@ The MVP includes:
 - Profile-specific OAuth storage via `MCP_REMOTE_CONFIG_DIR`.
 - Encrypted local storage for PATs and API tokens through Electron `safeStorage` on macOS.
 - A bridge mode that keeps credentials out of generated MCP client configuration.
-- One-click configuration installation for Claude Desktop, Codex, Cursor, and Windsurf.
+- Automatic post-auth installation into detected Claude Desktop, Codex, Cursor, and Windsurf clients, with backups.
+- A generated “agent routing” block that maps current MMCP profile labels to their exact MCP server IDs without exposing credentials.
 - Read-only discovery of configured MCP servers in Claude Desktop, Claude Code, Codex, Cursor, Windsurf, VS Code, and Zed.
 - Metadata-only import for existing remote servers, with managed profiles recognized automatically.
 - Timestamped backups before existing host configuration is changed.
@@ -66,6 +67,8 @@ When an MCP host starts that command, MMCP runs without its UI, opens the profil
 Static credentials are supplied to the bridge through the child process environment and referenced symbolically by the MCP proxy argument. They are not written into host configuration.
 
 On macOS, closing the MMCP window hides it instead of quitting it; click its Dock icon or relaunch MMCP to show the window again. Individual MCP bridges run without Dock tiles. Saved profile metadata and isolated OAuth storage remain on disk when MMCP is quit, although an MCP host can still end its own bridge process when it exits.
+
+After a connection check succeeds, MMCP installs it into every supported AI client it finds locally and tells the user which clients need a restart. The generated agent-routing block should be pasted into a personal `AGENTS.md` or `CLAUDE.md`; it makes the profile selection policy explicit, but the live MCP tool list remains authoritative.
 
 ## Current boundaries
 

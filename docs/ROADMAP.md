@@ -19,6 +19,8 @@
 - [x] Read-only discovery across popular local MCP clients
 - [x] Secret-safe metadata import from existing remote MCP configuration
 - [x] In-app account-connection guide
+- [x] Generated agent routing instructions for current MMCP profiles
+- [x] Automatic post-auth installation into detected supported AI clients
 - [ ] Live smoke test with two Supabase accounts
 - [ ] Live smoke test with two GitHub accounts
 - [ ] Verify Vercel client approval behavior

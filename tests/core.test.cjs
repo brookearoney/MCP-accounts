@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   buildBridgeCommand,
   buildEndpoint,
+  buildRoutingInstructions,
   managedProfileId,
   mergeHostConfig,
   removeManagedProfileEntries,
@@ -142,6 +143,17 @@ test("bridge commands contain a profile id but no credential", () => {
     command: "/electron",
     args: ["/project", "--mcp-profile", "1234-secret-profile"],
   });
+});
+
+test("routing instructions make account boundaries and server IDs explicit", () => {
+  const instructions = buildRoutingInstructions([
+    { id: "beef-1234", serviceId: "supabase", serviceName: "Supabase", label: "Triple Sequence", scope: "triple-sequence" },
+    { id: "cafe-5678", serviceId: "supabase", serviceName: "Supabase", label: "Meeko", scope: "meeko" },
+  ]);
+  assert.match(instructions, /Never substitute a different account/);
+  assert.match(instructions, /supabase_triple_sequence_beef/);
+  assert.match(instructions, /supabase_meeko_cafe/);
+  assert.match(instructions, /live MCP tool list is authoritative/);
 });
 
 test("public profiles never expose encrypted secrets", () => {

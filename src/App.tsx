@@ -396,6 +396,35 @@ function ConfigSheet({
   );
 }
 
+function RestartNotice({
+  connectionLabel,
+  hosts,
+  warnings,
+  onClose,
+}: {
+  connectionLabel: string;
+  hosts: string[];
+  warnings: string[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal restart-modal">
+        <header className="modal-header">
+          <div><p className="eyebrow">Connected and installed</p><h2>{connectionLabel}</h2></div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        <div className="restart-content">
+          <div className="restart-check">✓</div>
+          <div><h3>Restart your AI client{hosts.length === 1 ? "" : "s"}</h3><p>MMCP installed this connection in {hosts.join(", ")}. Restart {hosts.length === 1 ? "it" : "them"} before asking an agent to use this account.</p></div>
+        </div>
+        {warnings.length > 0 && <div className="notice warning restart-warning">{warnings.join(" ")}</div>}
+        <footer className="modal-footer"><button type="button" className="button primary" onClick={onClose}>Got it</button></footer>
+      </section>
+    </div>
+  );
+}
+
 function App() {
   const [data, setData] = useState<BootstrapData>();
   const [view, setView] = useState<View>("connections");
@@ -403,6 +432,7 @@ function App() {
   const [editingProfile, setEditingProfile] = useState<Profile>();
   const [discoverySeed, setDiscoverySeed] = useState<Partial<ProfileInput>>();
   const [configProfile, setConfigProfile] = useState<Profile>();
+  const [restartNotice, setRestartNotice] = useState<{ connectionLabel: string; hosts: string[]; warnings: string[] }>();
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [toast, setToast] = useState("");
   const [query, setQuery] = useState("");
@@ -417,6 +447,13 @@ function App() {
         [event.profileId]: [...(previous[event.profileId] || []), ...event.message.split("\n").filter(Boolean)].slice(-30),
       }));
       if (event.kind === "complete" || event.kind === "error") refresh();
+      if (event.kind === "complete" && event.installedHosts?.length) {
+        setRestartNotice({
+          connectionLabel: event.connectionLabel || "Connection",
+          hosts: event.installedHosts,
+          warnings: event.installationWarnings || [],
+        });
+      }
     });
   }, []);
 
@@ -440,6 +477,15 @@ function App() {
 
   function notify(message: string) {
     setToast(message);
+  }
+
+  async function copyRoutingInstructions() {
+    try {
+      await navigator.clipboard.writeText(await window.mcpAccounts.getRoutingInstructions());
+      notify("MMCP routing instructions copied. Paste them into your personal AGENTS.md or CLAUDE.md.");
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   async function startConnection(profile: Profile) {
@@ -566,7 +612,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.4.5</span>
+          <span className="version">MVP 0.4.6</span>
         </div>
       </aside>
 
@@ -575,7 +621,10 @@ function App() {
           <>
             <header className="page-header">
               <div><p className="eyebrow">Your machine</p><h1>Connections</h1><p>One service. Every account. No credential collisions.</p></div>
-              <button className="button primary" onClick={() => setView("catalog")}><span>＋</span>Add connection</button>
+              <div className="header-actions">
+                {data.profiles.length > 0 && <button className="button ghost" onClick={copyRoutingInstructions}>Copy agent routing</button>}
+                <button className="button primary" onClick={() => setView("catalog")}><span>＋</span>Add connection</button>
+              </div>
             </header>
 
             {data.profiles.length > 0 && (
@@ -673,13 +722,15 @@ function App() {
 
             <section className="guide-finish">
               <p className="eyebrow">Finish the connection</p>
-              <h2>Connect, then install it in your AI client.</h2>
+              <h2>Connect once. MMCP installs it everywhere it finds.</h2>
               <div className="finish-steps">
                 <div><span>1</span><strong>Run Connect</strong><p>Complete the browser sign-in or test your token. OAuth data stays separate for this profile.</p></div>
-                <div><span>2</span><strong>Click Install</strong><p>Choose Claude Desktop, Codex, Cursor, or Windsurf. MMCP makes a backup before changing a client file.</p></div>
-                <div><span>3</span><strong>Restart the client</strong><p>Your AI client will see a distinct server name for this specific account profile.</p></div>
+                <div><span>2</span><strong>Installed automatically</strong><p>MMCP updates every supported AI client it finds and makes a backup first.</p></div>
+                <div><span>3</span><strong>Restart the client</strong><p>MMCP names the clients that need a restart before they can see this account.</p></div>
               </div>
             </section>
+
+            {data.profiles.length > 0 && <div className="agent-routing-card"><div><p className="eyebrow">Agent context</p><h2>Give every agent the current account map.</h2><p>Copy a generated routing block for your personal AGENTS.md or CLAUDE.md. It updates from your current MMCP profiles and contains no credentials.</p></div><button className="button" onClick={copyRoutingInstructions}>Copy agent routing</button></div>}
 
             <div className="notice guide-notice"><strong>What we do not import:</strong> OAuth sessions, browser cookies, Keychain values, and token values belonging to another app. That keeps each account profile secure and independent.</div>
           </section>
@@ -813,6 +864,7 @@ function App() {
         />
       )}
       {configProfile && <ConfigSheet profile={configProfile} hosts={data.hosts} onClose={() => setConfigProfile(undefined)} notify={notify} />}
+      {restartNotice && <RestartNotice {...restartNotice} onClose={() => setRestartNotice(undefined)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

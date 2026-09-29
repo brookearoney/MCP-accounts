@@ -41,6 +41,46 @@ function profileServerName(profile) {
   return `${base}_${profile.id.slice(0, 4)}`;
 }
 
+function routingCell(value, fallback = "—") {
+  const clean = String(value || "").replace(/[|\r\n]/g, " ").trim();
+  return clean || fallback;
+}
+
+function buildRoutingInstructions(profiles) {
+  const entries = (Array.isArray(profiles) ? profiles : [])
+    .slice()
+    .sort((left, right) => `${left.serviceName} ${left.label}`.localeCompare(`${right.serviceName} ${right.label}`));
+
+  const lines = [
+    "## MMCP connector routing",
+    "",
+    "MMCP exposes a separate MCP server for every service/account/workspace boundary. Treat each listed profile as a distinct authorization boundary.",
+    "",
+    "Before using an external-service tool:",
+    "1. Inspect the MCP tools actually available in this session.",
+    "2. Use only the exact server ID that matches the requested service and MMCP profile.",
+    "3. Never substitute a different account, workspace, or project without explicit user approval.",
+    "4. If the requested profile is absent, say it is unavailable in this session and ask the user to restart their AI client. Do not claim the action completed.",
+    "5. Immediately before a write action, state the selected MMCP profile and server ID.",
+    "",
+    "### Current MMCP profiles",
+    "",
+    "| Service | Profile | Server ID | Scope |",
+    "| --- | --- | --- | --- |",
+  ];
+
+  if (!entries.length) {
+    lines.push("| — | No MMCP profiles configured | — | — |");
+  } else {
+    for (const profile of entries) {
+      lines.push(`| ${routingCell(profile.serviceName, routingCell(profile.serviceId, "Custom MCP"))} | ${routingCell(profile.label)} | \`${profileServerName(profile)}\` | ${routingCell(profile.scope)} |`);
+    }
+  }
+
+  lines.push("", "The live MCP tool list is authoritative if it differs from this table.");
+  return lines.join("\n");
+}
+
 function buildBridgeCommand({ profile, appPath, appExecutable, packaged }) {
   const args = packaged
     ? ["--mcp-profile", profile.id]
@@ -113,6 +153,7 @@ function publicProfile(profile) {
 module.exports = {
   buildBridgeCommand,
   buildEndpoint,
+  buildRoutingInstructions,
   managedProfileId,
   mergeHostConfig,
   removeManagedProfileEntries,

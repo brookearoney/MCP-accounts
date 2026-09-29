@@ -9,6 +9,7 @@ const { discoverMcpConnections, parseCodexServers } = require("./discovery.cjs")
 const { bridgeEnvironment, findExecutable, stopChildProcess } = require("./runtime.cjs");
 const {
   buildBridgeCommand,
+  buildRoutingInstructions,
   managedProfileId,
   mergeHostConfig,
   profileServerName,
@@ -167,21 +168,25 @@ const hosts = [
     id: "claude",
     name: "Claude Desktop",
     filePath: path.join(os.homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json"),
+    appPaths: ["/Applications/Claude.app"],
   },
   {
     id: "cursor",
     name: "Cursor",
     filePath: path.join(os.homedir(), ".cursor", "mcp.json"),
+    appPaths: ["/Applications/Cursor.app"],
   },
   {
     id: "windsurf",
     name: "Windsurf",
     filePath: path.join(os.homedir(), ".codeium", "windsurf", "mcp_config.json"),
+    appPaths: ["/Applications/Windsurf.app"],
   },
   {
     id: "codex",
     name: "Codex",
     filePath: path.join(os.homedir(), ".codex", "config.toml"),
+    appPaths: ["/Applications/ChatGPT.app", "/Applications/Codex.app"],
   },
 ];
 
@@ -280,6 +285,42 @@ function installCodexHost(host, profile) {
   return { filePath: host.filePath, backupPath, serverName };
 }
 
+function installHost(host, profile) {
+  if (host.id === "codex") return installCodexHost(host, profile);
+  const name = profileServerName(profile);
+  // A label can change over the life of a profile, which changes its server
+  // name. Remove every prior bridge entry for this profile before adding the
+  // current one, so clients do not start duplicate connections on launch.
+  const existing = readJson(host.filePath);
+  const cleaned = removeManagedProfileEntries(existing, profile.id);
+  const merged = mergeHostConfig(cleaned.config, name, bridgeEntry(profile));
+  const backupPath = writeJsonWithBackup(host.filePath, merged);
+  return {
+    filePath: host.filePath,
+    backupPath,
+    serverName: name,
+    removedServerNames: cleaned.removedServerNames,
+  };
+}
+
+function hostIsAvailable(host) {
+  return fs.existsSync(host.filePath) || host.appPaths.some((appPath) => fs.existsSync(appPath));
+}
+
+function installAvailableHosts(profile) {
+  const installedHosts = [];
+  const warnings = [];
+  for (const host of hosts.filter(hostIsAvailable)) {
+    try {
+      installHost(host, profile);
+      installedHosts.push(host.name);
+    } catch (error) {
+      warnings.push(`${host.name}: ${error.message}`);
+    }
+  }
+  return { installedHosts, warnings };
+}
+
 function removeInstalledHostEntries(profile) {
   let installationsRemoved = 0;
   const warnings = [];
@@ -325,6 +366,7 @@ function registerIpc() {
   ipcMain.handle("discovery:scan", () => discoverMcpConnections(store));
 
   ipcMain.handle("profiles:save", (_event, input) => store.upsert(input));
+  ipcMain.handle("profiles:routingInstructions", () => buildRoutingInstructions(store.list()));
   ipcMain.handle("profiles:remove", (_event, id) => {
     const profile = store.get(id);
     if (!profile) return { removed: false, installationsRemoved: 0, warnings: [] };
@@ -376,21 +418,7 @@ function registerIpc() {
     const profile = store.get(profileId);
     if (!host) throw new Error("Unknown MCP host");
     if (!profile) throw new Error("Connection not found");
-    if (host.id === "codex") return installCodexHost(host, profile);
-    const name = profileServerName(profile);
-    // A label can change over the life of a profile, which changes its server
-    // name. Remove every prior bridge entry for this profile before adding the
-    // current one, so clients do not start duplicate connections on launch.
-    const existing = readJson(host.filePath);
-    const cleaned = removeManagedProfileEntries(existing, profile.id);
-    const merged = mergeHostConfig(cleaned.config, name, bridgeEntry(profile));
-    const backupPath = writeJsonWithBackup(host.filePath, merged);
-    return {
-      filePath: host.filePath,
-      backupPath,
-      serverName: name,
-      removedServerNames: cleaned.removedServerNames,
-    };
+    return installHost(host, profile);
   });
 
   ipcMain.handle("connections:start", (_event, id) => {
@@ -414,9 +442,9 @@ function registerIpc() {
     });
     activeChecks.set(id, child);
 
-    const send = (kind, message) => {
+    const send = (kind, message, details = {}) => {
       if (!mainWindow?.isDestroyed()) {
-        mainWindow.webContents.send("connection:event", { profileId: id, kind, message: redact(message) });
+        mainWindow.webContents.send("connection:event", { profileId: id, kind, message: redact(message), ...details });
       }
     };
     child.stdout.on("data", (data) => send("output", data.toString()));
@@ -444,7 +472,18 @@ function registerIpc() {
       }
       if (code === 0) {
         store.setStatus(id, "connected");
-        send("complete", "Connection authenticated and tools discovered.");
+        const installation = installAvailableHosts(profile);
+        const installed = installation.installedHosts.length
+          ? ` Installed in ${installation.installedHosts.join(", ")}. Restart those AI clients to load it.`
+          : " No supported installed AI client was found; use Install after adding one.";
+        const warnings = installation.warnings.length
+          ? ` Some installations need attention: ${installation.warnings.join(" ")}`
+          : "";
+        send("complete", `Connection authenticated and tools discovered.${installed}${warnings}`, {
+          connectionLabel: `${profile.serviceName} · ${profile.label}`,
+          installedHosts: installation.installedHosts,
+          installationWarnings: installation.warnings,
+        });
       } else {
         const message = `Connection check exited with code ${code ?? "unknown"}.`;
         store.setStatus(id, "error", message);
