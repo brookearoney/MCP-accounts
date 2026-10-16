@@ -83,6 +83,18 @@ const services = [
     endpointLocked: true,
   },
   {
+    id: "railway",
+    name: "Railway",
+    monogram: "R",
+    color: "#9b7dff",
+    endpoint: "https://mcp.railway.com",
+    authModes: ["oauth"],
+    maturity: "official",
+    description: "Projects, services, deployments, environments, logs, and Railway account context.",
+    scopeLabel: "Workspace or account",
+    endpointLocked: true,
+  },
+  {
     id: "hubspot",
     name: "HubSpot",
     monogram: "HS",

@@ -15,10 +15,13 @@ test("new hosted OAuth services use their official locked endpoints", () => {
   assert.equal(byId.posthog.endpoint, "https://mcp.posthog.com/mcp");
   assert.equal(byId.neon.endpoint, "https://mcp.neon.tech/mcp");
   assert.equal(byId.notion.endpoint, "https://mcp.notion.com/mcp");
+  assert.equal(byId.railway.endpoint, "https://mcp.railway.com");
   assert.equal(byId.posthog.endpointLocked, true);
   assert.equal(byId.neon.endpointLocked, true);
   assert.equal(byId.notion.endpointLocked, true);
+  assert.equal(byId.railway.endpointLocked, true);
   assert.deepEqual(byId.posthog.authModes, ["oauth"]);
+  assert.deepEqual(byId.railway.authModes, ["oauth"]);
 });
 
 test("HubSpot and Slack require a local OAuth client while Shopify is UCP-guided", () => {
