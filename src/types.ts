@@ -59,6 +59,7 @@ export interface BootstrapData {
     encryptionAvailable: boolean;
     npx: string;
   };
+  maintenanceWarnings?: string[];
 }
 
 export interface DetectedConnection {

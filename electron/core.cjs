@@ -81,7 +81,14 @@ function buildRoutingInstructions(profiles) {
   return lines.join("\n");
 }
 
-function buildBridgeCommand({ profile, appPath, appExecutable, packaged }) {
+function buildBridgeCommand({ profile, appPath, appExecutable, packaged, nodeExecutable, bridgeRunnerPath, dataDirectory }) {
+  if (!profile.encryptedSecret && !profile.encryptedOauthClientSecret && nodeExecutable && bridgeRunnerPath && dataDirectory) {
+    return {
+      command: nodeExecutable,
+      args: [bridgeRunnerPath, "--data-dir", dataDirectory, "--mcp-profile", profile.id],
+    };
+  }
+
   const args = packaged
     ? ["--mcp-profile", profile.id]
     : [appPath, "--mcp-profile", profile.id];

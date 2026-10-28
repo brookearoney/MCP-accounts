@@ -24,12 +24,37 @@ const isBridgeMode = Boolean(bridgeProfileId);
 let mainWindow;
 let store;
 let isQuitting = false;
+let startupWarnings = [];
 const activeChecks = new Map();
 const cancelledChecks = new Set();
 const cancellationReported = new Set();
+const mcpRemoteVersion = "0.15.2";
 
 function npxPath() {
   return findExecutable("npx") || "npx";
+}
+
+function nodePath() {
+  return findExecutable("node");
+}
+
+function ensureBridgeRunner() {
+  const targetDirectory = path.join(app.getPath("userData"), "bridge-runtime");
+  const targetPath = path.join(targetDirectory, "bridge-runner.cjs");
+  const sourcePath = path.join(__dirname, "bridge-runner.cjs");
+  fs.mkdirSync(targetDirectory, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${targetPath}.${process.pid}.tmp`;
+  fs.copyFileSync(sourcePath, temporaryPath);
+  fs.chmodSync(temporaryPath, 0o600);
+  fs.renameSync(temporaryPath, targetPath);
+  return targetPath;
+}
+
+function clearBridgeRetryState(profileId) {
+  const statePath = path.join(store.authDirectory(profileId), "mmcp-bridge-state.json");
+  try { fs.unlinkSync(statePath); } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
 }
 
 function ensureNodeRuntime() {
@@ -49,8 +74,8 @@ function oauthClientInfoPath(profile) {
 
 function mcpRemoteArgs(profile, clientMode = false, clientInfoPath = "") {
   const args = clientMode
-    ? ["-y", "-p", "mcp-remote@latest", "mcp-remote-client", profile.endpoint]
-    : ["-y", "mcp-remote@latest", profile.endpoint];
+    ? ["-y", "-p", `mcp-remote@${mcpRemoteVersion}`, "mcp-remote-client", profile.endpoint]
+    : ["-y", `mcp-remote@${mcpRemoteVersion}`, profile.endpoint];
 
   if (profile.oauthCallbackPort) args.push(String(profile.oauthCallbackPort));
   if (clientInfoPath) args.push("--static-oauth-client-info", `@${clientInfoPath}`);
@@ -160,6 +185,9 @@ function bridgeEntry(profile) {
     appPath: app.getAppPath(),
     appExecutable: process.execPath,
     packaged: app.isPackaged,
+    nodeExecutable: nodePath(),
+    bridgeRunnerPath: ensureBridgeRunner(),
+    dataDirectory: app.getPath("userData"),
   });
 }
 
@@ -216,8 +244,12 @@ function codexPath() {
   // macOS GUI applications often start with a minimal PATH, so the Codex CLI
   // bundled with the desktop app is not discoverable through `which codex`.
   // Prefer a shell-installed CLI, then use the desktop bundle explicitly.
-  const bundledCli = "/Applications/ChatGPT.app/Contents/Resources/codex";
-  return findExecutable("codex") || (fs.existsSync(bundledCli) ? bundledCli : "codex");
+  const bundledCandidates = [
+    "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+    path.join(os.homedir(), "Applications", "ChatGPT.app", "Contents", "Resources", "codex-cli", "CodexCLI.app", "Contents", "MacOS", "codex"),
+    "/Applications/ChatGPT.app/Contents/Resources/codex",
+  ];
+  return findExecutable("codex") || bundledCandidates.find((candidate) => fs.existsSync(candidate)) || "codex";
 }
 
 function runCodexMcp(args) {
@@ -277,12 +309,122 @@ function installCodexHost(host, profile) {
     removeCodexServersForProfile(profile);
     const added = runCodexMcp(["add", serverName, "--", entry.command, ...entry.args]);
     if (added.status !== 0) throw new Error(codexError(added));
+    ensureCodexStartupTimeout(serverName);
   } catch (error) {
     if (hadOriginal) fs.writeFileSync(host.filePath, original, { mode: 0o600 });
     throw error;
   }
 
   return { filePath: host.filePath, backupPath, serverName };
+}
+
+function ensureCodexStartupTimeout(serverName, timeoutSeconds = 120) {
+  const lines = fs.readFileSync(path.join(os.homedir(), ".codex", "config.toml"), "utf8").split(/\r?\n/);
+  const tableHeader = `[mcp_servers.${serverName}]`;
+  const start = lines.indexOf(tableHeader);
+  if (start < 0) throw new Error(`Codex did not write the ${serverName} MCP table to config.toml.`);
+  let end = start + 1;
+  while (end < lines.length && !/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(lines[end])) end += 1;
+  const keyIndex = lines.slice(start + 1, end).findIndex((line) => /^\s*startup_timeout_sec\s*=/.test(line));
+  if (keyIndex >= 0) {
+    lines[start + 1 + keyIndex] = `startup_timeout_sec = ${timeoutSeconds}`;
+  } else {
+    lines.splice(start + 1, 0, `startup_timeout_sec = ${timeoutSeconds}`);
+  }
+  fs.writeFileSync(path.join(os.homedir(), ".codex", "config.toml"), `${lines.join("\n").replace(/\n*$/, "\n")}`, { mode: 0o600 });
+}
+
+function codexServerSection(config, serverName) {
+  const lines = config.split(/\r?\n/);
+  const start = lines.indexOf(`[mcp_servers.${serverName}]`);
+  if (start < 0) return "";
+  let end = start + 1;
+  while (end < lines.length && !/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(lines[end])) end += 1;
+  return lines.slice(start + 1, end).join("\n");
+}
+
+function migrateJsonHost(host) {
+  if (!fs.existsSync(host.filePath)) return false;
+  const existing = readJson(host.filePath);
+  const servers = existing.mcpServers && typeof existing.mcpServers === "object" ? existing.mcpServers : {};
+  const managedIds = [...new Set(Object.values(servers).map(managedProfileId).filter(Boolean))];
+  if (!managedIds.length) return false;
+
+  let next = existing;
+  for (const profileId of managedIds) {
+    const cleaned = removeManagedProfileEntries(next, profileId);
+    next = cleaned.config;
+    const profile = store.get(profileId);
+    if (profile) next = mergeHostConfig(next, profileServerName(profile), bridgeEntry(profile));
+  }
+
+  if (JSON.stringify(next) === JSON.stringify(existing)) return false;
+  writeJsonWithBackup(host.filePath, next);
+  return true;
+}
+
+function migrateCodexHost(host) {
+  if (!fs.existsSync(host.filePath)) return false;
+  const original = fs.readFileSync(host.filePath, "utf8");
+  const entries = Object.entries(parseCodexServers(original))
+    .map(([name, entry]) => ({ name, entry, profileId: managedProfileId(entry) }))
+    .filter((item) => item.profileId);
+  if (!entries.length) return false;
+
+  const profiles = new Map();
+  let needsMigration = false;
+  for (const item of entries) {
+    const profile = store.get(item.profileId);
+    if (!profile) {
+      needsMigration = true;
+      continue;
+    }
+    profiles.set(profile.id, profile);
+    const expectedName = profileServerName(profile);
+    const expectedEntry = bridgeEntry(profile);
+    const timeout = codexServerSection(original, item.name).match(/startup_timeout_sec\s*=\s*(\d+)/)?.[1];
+    if (item.name !== expectedName
+      || item.entry.command !== expectedEntry.command
+      || JSON.stringify(item.entry.args || []) !== JSON.stringify(expectedEntry.args)
+      || Number(timeout || 0) < 120) needsMigration = true;
+  }
+  if (new Set(entries.map((item) => item.profileId)).size !== entries.length) needsMigration = true;
+  if (!needsMigration) return false;
+
+  const backupPath = backupExistingFile(host.filePath);
+  try {
+    for (const { name } of entries) {
+      const removed = runCodexMcp(["remove", name]);
+      if (removed.status !== 0) throw new Error(codexError(removed));
+    }
+    for (const profile of profiles.values()) {
+      const serverName = profileServerName(profile);
+      const entry = bridgeEntry(profile);
+      const added = runCodexMcp(["add", serverName, "--", entry.command, ...entry.args]);
+      if (added.status !== 0) throw new Error(codexError(added));
+      ensureCodexStartupTimeout(serverName);
+    }
+  } catch (error) {
+    if (backupPath) fs.copyFileSync(backupPath, host.filePath);
+    else fs.writeFileSync(host.filePath, original, { mode: 0o600 });
+    throw error;
+  }
+  return true;
+}
+
+function migrateInstalledBridgeEntries() {
+  const warnings = [];
+  const updatedHosts = [];
+  for (const host of hosts) {
+    try {
+      const changed = host.id === "codex" ? migrateCodexHost(host) : migrateJsonHost(host);
+      if (changed) updatedHosts.push(host.name);
+    } catch (error) {
+      warnings.push(`${host.name}: ${error.message}`);
+    }
+  }
+  if (updatedHosts.length) warnings.unshift(`MMCP refreshed its connection launcher in ${updatedHosts.join(", ")}. Restart those apps to load the fix.`);
+  return warnings;
 }
 
 function installHost(host, profile) {
@@ -361,6 +503,7 @@ function registerIpc() {
       encryptionAvailable: require("electron").safeStorage.isEncryptionAvailable(),
       npx: npxPath(),
     },
+    maintenanceWarnings: startupWarnings,
   }));
 
   ipcMain.handle("discovery:scan", () => discoverMcpConnections(store));
@@ -428,6 +571,7 @@ function registerIpc() {
     ensureNodeRuntime();
     cancelledChecks.delete(id);
     cancellationReported.delete(id);
+    clearBridgeRetryState(id);
 
     store.setStatus(id, "connecting");
     const secret = store.decryptSecret(profile);
@@ -471,6 +615,7 @@ function registerIpc() {
         return;
       }
       if (code === 0) {
+        clearBridgeRetryState(id);
         store.setStatus(id, "connected");
         const installation = installAvailableHosts(profile);
         const installed = installation.installedHosts.length
@@ -508,6 +653,11 @@ function registerIpc() {
 }
 
 if (isBridgeMode) {
+  app.on("activate", () => {
+    const appBundlePath = path.resolve(path.dirname(process.execPath), "..", "..");
+    const launcher = spawn("/usr/bin/open", ["-n", "-a", appBundlePath], { detached: true, stdio: "ignore" });
+    launcher.unref();
+  });
   runBridge();
 } else {
   const gotLock = app.requestSingleInstanceLock();
@@ -524,6 +674,12 @@ if (isBridgeMode) {
 
     app.whenReady().then(() => {
       store = new ProfileStore(app.getPath("userData"));
+      try {
+        ensureBridgeRunner();
+        startupWarnings = migrateInstalledBridgeEntries();
+      } catch (error) {
+        startupWarnings = [`MMCP bridge migration: ${error.message}`];
+      }
       registerIpc();
       createWindow();
       app.on("activate", () => {

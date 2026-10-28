@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import mmcpLogo from "../MMCP.svg";
 import fullWordmark from "../Word Mark (full).svg";
 import type {
@@ -436,8 +436,15 @@ function App() {
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [toast, setToast] = useState("");
   const [query, setQuery] = useState("");
+  const maintenanceHandled = useRef(false);
 
-  const refresh = () => window.mcpAccounts.bootstrap().then(setData);
+  const refresh = () => window.mcpAccounts.bootstrap().then((bootstrap) => {
+    setData(bootstrap);
+    if (!maintenanceHandled.current && bootstrap.maintenanceWarnings?.length) {
+      maintenanceHandled.current = true;
+      setToast(bootstrap.maintenanceWarnings.join(" "));
+    }
+  });
 
   useEffect(() => {
     refresh();
@@ -612,7 +619,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <div className="secure-state"><span>●</span><div><strong>Local-only</strong><small>{data.runtime.encryptionAvailable ? "macOS encryption active" : "Encryption unavailable"}</small></div></div>
-          <span className="version">MVP 0.4.8</span>
+          <span className="version">MVP 0.4.9</span>
         </div>
       </aside>
 

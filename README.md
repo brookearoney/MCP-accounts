@@ -49,24 +49,30 @@ Unsigned development builds may show the normal macOS security warning. Public d
 
 ## How the bridge works
 
-Installed client configuration contains a command like:
+OAuth profiles are installed with a lightweight Node command like:
 
 ```json
 {
   "mcpServers": {
     "supabase_work_ab12": {
-      "command": "/Applications/MMCP.app/Contents/MacOS/MMCP",
-      "args": ["--mcp-profile", "ab12…"]
+      "command": "/opt/homebrew/bin/node",
+      "args": [
+        "/Users/you/Library/Application Support/MMCP/bridge-runtime/bridge-runner.cjs",
+        "--data-dir",
+        "/Users/you/Library/Application Support/MMCP",
+        "--mcp-profile",
+        "ab12…"
+      ]
     }
   }
 }
 ```
 
-When an MCP host starts that command, MMCP runs without its UI, opens the profile metadata, decrypts the selected credential if needed, and launches an isolated `mcp-remote` bridge. OAuth state lives under a directory unique to that profile.
+OAuth profiles use a small Node.js launcher outside the MMCP application bundle. It reads only the selected profile's endpoint and starts an isolated `mcp-remote` process, so a host starts one lightweight bridge instead of a full Electron app for each connection. Profiles with encrypted static credentials use MMCP's Electron bridge so those values can be decrypted through macOS Keychain. OAuth state lives in a directory unique to each profile.
 
 Static credentials are supplied to the bridge through the child process environment and referenced symbolically by the MCP proxy argument. They are not written into host configuration.
 
-On macOS, closing the MMCP window hides it instead of quitting it; click its Dock icon or relaunch MMCP to show the window again. Individual MCP bridges run without Dock tiles. Saved profile metadata and isolated OAuth storage remain on disk when MMCP is quit, although an MCP host can still end its own bridge process when it exits.
+On macOS, closing the MMCP window hides it instead of quitting it; click its Dock icon or relaunch MMCP to show the window again. Electron bridges run without Dock tiles. If OAuth is required or the service returns HTTP 429, the launcher pauses automatic retries instead of repeatedly opening browsers or hammering the service. Use **Connect** in MMCP to explicitly retry. Saved profile metadata and isolated OAuth storage remain on disk when MMCP is quit, although an MCP host can still end its own bridge process when it exits.
 
 After a connection check succeeds, MMCP installs it into every supported AI client it finds locally and tells the user which clients need a restart. The generated agent-routing block should be pasted into a personal `AGENTS.md` or `CLAUDE.md`; it makes the profile selection policy explicit, but the live MCP tool list remains authoritative.
 
@@ -75,7 +81,8 @@ After a connection check succeeds, MMCP installs it into every supported AI clie
 - The MVP targets remote Streamable HTTP MCP endpoints.
 - Discovery reads known local configuration files. It can identify a provider, endpoint, project scope, and whether credential fields are configured, but it does not copy credential values.
 - Third-party clients commonly keep OAuth account identity and tokens in private stores. MMCP therefore cannot safely infer an email address or reuse that authorization; imported metadata must be authenticated as a new isolated profile.
-- It uses `npx mcp-remote@latest`, so Node/npm and network access are required on first bridge launch.
+- It uses the pinned `mcp-remote@0.15.2` package, so Node/npm and network access are required on first bridge launch.
+- Codex uses its `codex mcp` CLI when available, with a path fallback for the Codex CLI bundled inside the ChatGPT desktop app. MMCP sets `startup_timeout_sec = 120` for its Codex servers because first-time OAuth and package startup can exceed Codex's 10-second default. Codex stores MCP entries in `~/.codex/config.toml`, shared with the Codex CLI and desktop app; restart Codex after connecting or after MMCP refreshes existing entries.
 - Higgsfield uses its official OAuth MCP endpoint at `https://mcp.higgsfield.ai/mcp`; no API key is required. MCP generations consume Higgsfield credits.
 - PostHog, Neon, and Notion use their official hosted OAuth MCP endpoints with a separate local OAuth directory for each profile.
 - Railway uses its official hosted MCP at `https://mcp.railway.com` with profile-isolated browser OAuth. Use Railway's CLI separately for local-repository commands such as deploys, `railway up`, and `railway run`.
