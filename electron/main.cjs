@@ -44,9 +44,17 @@ function ensureBridgeRunner() {
   const sourcePath = path.join(__dirname, "bridge-runner.cjs");
   fs.mkdirSync(targetDirectory, { recursive: true, mode: 0o700 });
   const temporaryPath = `${targetPath}.${process.pid}.tmp`;
-  fs.copyFileSync(sourcePath, temporaryPath);
-  fs.chmodSync(temporaryPath, 0o600);
-  fs.renameSync(temporaryPath, targetPath);
+  // Electron exposes files inside app.asar through readFileSync. copyFileSync
+  // extracts the source into a transient macOS file first, which can disappear
+  // before the copy finishes and break installation for every MCP host.
+  try {
+    fs.writeFileSync(temporaryPath, fs.readFileSync(sourcePath), { mode: 0o600 });
+    fs.chmodSync(temporaryPath, 0o600);
+    fs.renameSync(temporaryPath, targetPath);
+  } catch (error) {
+    try { fs.unlinkSync(temporaryPath); } catch {}
+    throw error;
+  }
   return targetPath;
 }
 
